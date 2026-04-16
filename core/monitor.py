@@ -1,4 +1,4 @@
-"""Async GPU monitoring using NVML"""
+"""Async GPU monitoring using NVML (NVIDIA) and xpu-smi (Intel Arc)"""
 
 import asyncio
 import pynvml
@@ -6,19 +6,23 @@ import psutil
 import logging
 from .metrics import MetricsCollector
 from .nvidia_smi_fallback import parse_nvidia_smi
+from .intel_xpu_smi import discover_intel_gpus, collect_intel_gpu_metrics
 from .config import NVIDIA_SMI
 
 logger = logging.getLogger(__name__)
 
 
 class GPUMonitor:
-    """Monitor NVIDIA GPUs using NVML"""
+    """Monitor NVIDIA GPUs (NVML/nvidia-smi) and Intel Arc GPUs (xpu-smi)"""
 
     def __init__(self):
         self.running = False
         self.gpu_data = {}
         self.collector = MetricsCollector()
-        self.use_smi = {}  # Track which GPUs use nvidia-smi (decided at boot)
+        self.use_smi = {}  # Track which NVIDIA GPUs use nvidia-smi (decided at boot)
+
+        # Intel Arc GPU support
+        self.intel_gpus = {}  # {xpu_id: static_info} from xpu-smi discovery
 
         try:
             pynvml.nvmlInit()
@@ -34,6 +38,18 @@ class GPUMonitor:
         except Exception as e:
             logger.error(f"Failed to initialize NVML: {e}")
             self.initialized = False
+
+        # Detect Intel Arc GPUs (independent of NVML)
+        self._detect_intel_gpus()
+
+    def _detect_intel_gpus(self):
+        """Detect Intel Arc GPUs via xpu-smi discovery (called once at boot)"""
+        self.intel_gpus = discover_intel_gpus()
+        if self.intel_gpus:
+            names = [info['name'] for info in self.intel_gpus.values()]
+            logger.info(f"Detected {len(self.intel_gpus)} Intel GPU(s): {', '.join(names)}")
+        else:
+            logger.debug("No Intel GPUs detected (xpu-smi unavailable or no devices)")
 
     def _detect_smi_gpus(self):
         """Detect which GPUs need nvidia-smi fallback (called once at boot)"""
@@ -80,61 +96,67 @@ class GPUMonitor:
             logger.error(f"Failed to detect GPUs: {e}")
 
     async def get_gpu_data(self):
-        """Async collect metrics from all detected GPUs"""
-        if not self.initialized:
-            logger.error("Cannot get GPU data - NVML not initialized")
-            return {}
+        """Async collect metrics from all detected GPUs (NVIDIA + Intel Arc)"""
+        gpu_data = {}
 
-        try:
-            device_count = pynvml.nvmlDeviceGetCount()
-            gpu_data = {}
+        # --- NVIDIA GPUs ---
+        if self.initialized:
+            try:
+                device_count = pynvml.nvmlDeviceGetCount()
 
-            # Get nvidia-smi data once if any GPU needs it
-            smi_data = None
-            if any(self.use_smi.values()):
-                try:
-                    # Run nvidia-smi in thread pool to avoid blocking
-                    smi_data = await asyncio.get_event_loop().run_in_executor(
-                        None, parse_nvidia_smi
-                    )
-                except Exception as e:
-                    logger.error(f"nvidia-smi failed: {e}")
+                # Get nvidia-smi data once if any GPU needs it
+                smi_data = None
+                if any(self.use_smi.values()):
+                    try:
+                        smi_data = await asyncio.get_event_loop().run_in_executor(
+                            None, parse_nvidia_smi
+                        )
+                    except Exception as e:
+                        logger.error(f"nvidia-smi failed: {e}")
 
-            # Collect GPU data concurrently
-            tasks = []
-            for i in range(device_count):
-                gpu_id = str(i)
-                if self.use_smi.get(gpu_id, False):
-                    # Use nvidia-smi data
-                    if smi_data and gpu_id in smi_data:
-                        gpu_data[gpu_id] = smi_data[gpu_id]
+                # Collect NVIDIA GPU data concurrently
+                nvml_tasks = []
+                for i in range(device_count):
+                    gpu_id = str(i)
+                    if self.use_smi.get(gpu_id, False):
+                        if smi_data and gpu_id in smi_data:
+                            gpu_data[gpu_id] = smi_data[gpu_id]
+                        else:
+                            logger.warning(f"GPU {i}: No data from nvidia-smi")
                     else:
-                        logger.warning(f"GPU {i}: No data from nvidia-smi")
-                else:
-                    # Use NVML - run in thread pool to avoid blocking
-                    task = asyncio.get_event_loop().run_in_executor(
-                        None, self._collect_single_gpu, i
-                    )
-                    tasks.append((gpu_id, task))
+                        task = asyncio.get_event_loop().run_in_executor(
+                            None, self._collect_single_gpu, i
+                        )
+                        nvml_tasks.append((gpu_id, task))
 
-            # Wait for all NVML tasks to complete
-            if tasks:
-                results = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
-                for (gpu_id, _), result in zip(tasks, results):
-                    if isinstance(result, Exception):
-                        logger.error(f"GPU {gpu_id}: Error - {result}")
-                    else:
-                        gpu_data[gpu_id] = result
+                if nvml_tasks:
+                    results = await asyncio.gather(*[t for _, t in nvml_tasks], return_exceptions=True)
+                    for (gpu_id, _), result in zip(nvml_tasks, results):
+                        if isinstance(result, Exception):
+                            logger.error(f"GPU {gpu_id}: Error - {result}")
+                        else:
+                            gpu_data[gpu_id] = result
 
-            if not gpu_data:
-                logger.error("No GPU data collected from any source")
+            except Exception as e:
+                logger.error(f"Failed to get NVIDIA GPU data: {e}")
 
-            self.gpu_data = gpu_data
-            return gpu_data
+        # --- Intel Arc GPUs ---
+        if self.intel_gpus:
+            try:
+                intel_data = await asyncio.get_event_loop().run_in_executor(
+                    None, collect_intel_gpu_metrics, self.intel_gpus
+                )
+                for xpu_id, data in intel_data.items():
+                    # Prefix Intel GPU IDs with "i" to avoid collision with NVIDIA IDs
+                    gpu_data[f"i{xpu_id}"] = data
+            except Exception as e:
+                logger.error(f"Failed to get Intel GPU data: {e}")
 
-        except Exception as e:
-            logger.error(f"Failed to get GPU data: {e}")
-            return {}
+        if not gpu_data:
+            logger.error("No GPU data collected from any source")
+
+        self.gpu_data = gpu_data
+        return gpu_data
 
     def _collect_single_gpu(self, gpu_index):
         """Collect data for a single GPU (runs in thread pool)"""

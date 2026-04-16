@@ -38,11 +38,17 @@ def register_handlers(app, monitor):
 
 async def monitor_loop(monitor, connections):
     """Async background loop that collects and emits GPU data"""
-    # Determine update interval based on whether any GPU uses nvidia-smi
+    # Use slower interval when any GPU relies on a subprocess tool (nvidia-smi or xpu-smi)
     uses_nvidia_smi = any(monitor.use_smi.values()) if hasattr(monitor, 'use_smi') else False
-    update_interval = config.NVIDIA_SMI_INTERVAL if uses_nvidia_smi else config.UPDATE_INTERVAL
-    
-    if uses_nvidia_smi:
+    has_intel = bool(getattr(monitor, 'intel_gpus', {}))
+    uses_subprocess = uses_nvidia_smi or has_intel
+    update_interval = config.NVIDIA_SMI_INTERVAL if uses_subprocess else config.UPDATE_INTERVAL
+
+    if uses_nvidia_smi and has_intel:
+        logger.info(f"Using subprocess polling interval: {update_interval}s (nvidia-smi + xpu-smi)")
+    elif has_intel:
+        logger.info(f"Using xpu-smi polling interval: {update_interval}s")
+    elif uses_nvidia_smi:
         logger.info(f"Using nvidia-smi polling interval: {update_interval}s")
     else:
         logger.info(f"Using NVML polling interval: {update_interval}s")
