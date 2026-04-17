@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 from fastapi import WebSocket
 from . import config
+from .model_detector import get_running_models
 
 logger = logging.getLogger(__name__)
 
@@ -115,12 +116,20 @@ async def monitor_loop(monitor, connections):
             except Exception:
                 pass
             
+            try:
+                running_models = get_running_models(processes, gpu_ids=list(gpu_data.keys()))
+                for gpu_id, model in running_models.items():
+                    if gpu_id in gpu_data:
+                        gpu_data[gpu_id]['_running_model'] = model
+            except Exception as e:
+                logger.debug(f"Model detection error: {e}")
+
             data = {
                 'mode': config.MODE,
                 'node_name': config.NODE_NAME,
                 'gpus': gpu_data,
                 'processes': processes,
-                'system': system_info
+                'system': system_info,
             }
             
             # Send to all connected clients (iterate over copy to avoid "Set changed size during iteration")

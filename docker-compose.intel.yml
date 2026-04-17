@@ -1,0 +1,34 @@
+# Intel Arc GPU support
+# Requirements on host:
+#   - Intel GPU driver (xe kernel module)
+#   - User in 'video' and 'render' groups
+#
+# Usage: make intel
+services:
+  gpu-hot:
+    build:
+      context: .
+      target: intel
+    image: gpu-hot:intel
+    container_name: gpu-hot-intel
+    ports:
+      - "1312:1312"
+    environment:
+      - NODE_NAME=${HOSTNAME:-intel-node}
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /sys/class/drm:/sys/class/drm:ro
+      - /sys/bus/pci/devices:/sys/bus/pci/devices:ro
+    group_add:
+      - "44"   # video
+      - "992"  # render (verify: getent group render | cut -d: -f3)
+    init: true
+    pid: "host"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1312/api/gpu-data"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

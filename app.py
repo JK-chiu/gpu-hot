@@ -4,6 +4,8 @@
 import asyncio
 import logging
 import aiohttp
+import re
+import time as _time
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -18,6 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GPU Hot", version=__version__)
+_STATIC_VER = str(int(_time.time()))
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -53,9 +56,15 @@ else:
 
 @app.get("/")
 async def index():
-    """Serve the main dashboard"""
+    """Serve the main dashboard with cache-busting query strings"""
     with open("templates/index.html", "r") as f:
-        return HTMLResponse(content=f.read())
+        html = f.read()
+    html = re.sub(
+        r'((?:src|href)="/static/[^"]+?)(")',
+        lambda m: f'{m.group(1)}?v={_STATIC_VER}{m.group(2)}',
+        html
+    )
+    return HTMLResponse(content=html, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/gpu-data")

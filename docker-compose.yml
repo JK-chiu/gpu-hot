@@ -1,7 +1,10 @@
 
 services:
   gpu-hot:
-    build: .
+    build:
+      context: .
+      target: prod
+    image: gpu-hot:latest
     container_name: gpu-hot
     ports:
       - "1312:1312"
@@ -25,4 +28,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-

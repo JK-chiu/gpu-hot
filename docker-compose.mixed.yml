@@ -1,0 +1,47 @@
+# NVIDIA + Intel Arc GPU support simultaneously
+#
+# Requirements:
+#   - NVIDIA: NVIDIA Container Toolkit (nvidia-container-toolkit)
+#   - Intel:  xe kernel module + /dev/dri devices
+#   - User in 'video' (44) and 'render' groups
+#
+# Usage: make mixed
+services:
+  gpu-hot:
+    build:
+      context: .
+      target: mixed
+    image: gpu-hot:mixed
+    container_name: gpu-hot-mixed
+    ports:
+      - "1312:1312"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=utility,compute
+      - NODE_NAME=${HOSTNAME:-mixed-node}
+    # NVIDIA GPU — injected by NVIDIA Container Toolkit at runtime
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Intel GPU — /dev/dri passthrough
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"   # video
+      - "992"  # render  (verify: getent group render | cut -d: -f3)
+    volumes:
+      - /sys/class/drm:/sys/class/drm:ro
+      - /sys/bus/pci/devices:/sys/bus/pci/devices:ro
+    init: true
+    pid: "host"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1312/api/gpu-data"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

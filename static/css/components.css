@@ -254,6 +254,11 @@
     color: var(--text-tertiary);
 }
 
+.spec-tag.model-badge {
+    color: var(--accent-text);
+    font-weight: 600;
+}
+
 /* ---- Metrics Panel — subtle grouping container ---- */
 
 .metrics-panel {
