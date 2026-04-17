@@ -182,7 +182,8 @@ class MetricsCollector:
             data['energy_consumption_wh'] = float(energy) / 3600000.0
     
     def _add_fan_speeds(self, handle, data):
-        if fan := safe_get(pynvml.nvmlDeviceGetFanSpeed, handle):
+        fan = safe_get(pynvml.nvmlDeviceGetFanSpeed, handle)
+        if fan is not None:
             data['fan_speed'] = float(fan)
         
         if hasattr(pynvml, 'nvmlDeviceGetNumFans') and hasattr(pynvml, 'nvmlDeviceGetFanSpeed_v2'):
