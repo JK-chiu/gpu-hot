@@ -115,6 +115,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     const powerPercent = (power_draw / power_limit) * 100;
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
+    const hasFan = gpuInfo.fan_speed != null;
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
     const fanIsRPM = gpuInfo.vendor === 'Intel';
     const fanUnit = fanIsRPM ? 'RPM' : '%';
@@ -174,8 +175,9 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                     <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
                 </div>
                 <div class="gpu-detail-specs">
-                    <span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}${fanUnit}</span>
+                    ${hasFan ? `<span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}${fanUnit}</span>` : ''}
                     <span class="spec-tag" id="sgo-pstate-badge-${gpuId}">${gpuInfo.performance_state || ''}</span>
+                    <span class="spec-tag">PCIe ${gpuInfo.pcie_gen_max || gpuInfo.pcie_gen || ''}</span>
                     <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
                     ${hasMetric(gpuInfo, 'architecture') ? `<span class="spec-tag">${gpuInfo.architecture}</span>` : ''}
                     <span class="spec-tag">${gpuInfo._backend || (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
@@ -252,6 +254,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
     const power_draw = getMetricValue(gpuInfo, 'power_draw', 0);
     const power_limit = getMetricValue(gpuInfo, 'power_limit', 1);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
+    const hasFan = gpuInfo.fan_speed != null;
     const memPercent = (memory_used / memory_total) * 100;
     const powerPercent = (power_draw / power_limit) * 100;
     const fanIsRPM = gpuInfo.vendor === 'Intel';
@@ -301,7 +304,7 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
 
         // Header badges
         const fanBadgeEl = document.getElementById(`sgo-fan-badge-${gpuId}`);
-        if (fanBadgeEl) fanBadgeEl.textContent = `Fan ${fan_speed}${fanUnit}`;
+        if (fanBadgeEl) { fanBadgeEl.textContent = `Fan ${fan_speed}${fanUnit}`; fanBadgeEl.style.display = hasFan ? '' : 'none'; }
         const fanUnitEl = document.getElementById(`sgo-fan-unit-${gpuId}`);
         if (fanUnitEl) fanUnitEl.textContent = fanUnit;
         const pstateBadgeEl = document.getElementById(`sgo-pstate-badge-${gpuId}`);
@@ -350,6 +353,7 @@ function createGPUCard(gpuId, gpuInfo) {
     const powerPercent = (power_draw / power_limit) * 100;
     const utilization = getMetricValue(gpuInfo, 'utilization', 0);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
+    const hasFan = gpuInfo.fan_speed != null;
     const temperature = getMetricValue(gpuInfo, 'temperature', 0);
     const fanIsRPM = gpuInfo.vendor === 'Intel';
     const fanUnit = fanIsRPM ? 'RPM' : '%';
@@ -625,9 +629,9 @@ function createGPUCard(gpuId, gpuInfo) {
                 <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
             </div>
             <div class="gpu-detail-specs">
-                <span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}${fanUnit}</span>
+                ${hasFan ? `<span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}${fanUnit}</span>` : ''}
                 <span class="spec-tag" id="pstate-header-${gpuId}">${gpuInfo.performance_state || ''}</span>
-                <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${gpuInfo.pcie_gen || '?'}</span>
+                <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${gpuInfo.pcie_gen_max || gpuInfo.pcie_gen || '?'}</span>
                 <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
                 <span class="spec-tag">${gpuInfo._backend || (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
                 <span class="spec-tag model-badge" id="model-badge-${gpuId}" style="${gpuInfo._running_model ? '' : 'display:none'}">${gpuInfo._running_model || ''}</span>
@@ -884,6 +888,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
     const power_draw = getMetricValue(gpuInfo, 'power_draw', 0);
     const power_limit = getMetricValue(gpuInfo, 'power_limit', 1);
     const fan_speed = getMetricValue(gpuInfo, 'fan_speed', 0);
+    const hasFan = gpuInfo.fan_speed != null;
     const fanIsRPM = gpuInfo.vendor === 'Intel';
     const fanUnit = fanIsRPM ? 'RPM' : '%';
     const fanBarPct = fanIsRPM ? 0 : fan_speed;
@@ -907,7 +912,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         const memUnitEl = document.getElementById(`mem-unit-${gpuId}`);
         if (memUnitEl) memUnitEl.textContent = formatMemoryUnit(memory_used);
         if (powerEl) { powerEl.textContent = `${power_draw.toFixed(0)}`; powerEl.className = `metric-num ${bulletClass(powerPercent, 80, 95)}`; }
-        if (fanEl) fanEl.textContent = `Fan ${fan_speed}${fanUnit}`;
+        if (fanEl) { fanEl.textContent = `Fan ${fan_speed}${fanUnit}`; fanEl.style.display = hasFan ? '' : 'none'; }
         if (fanValEl) fanValEl.textContent = `${fan_speed}`;
         const fanUnitEl = document.getElementById(`fan-unit-${gpuId}`);
         if (fanUnitEl) fanUnitEl.textContent = fanUnit;
@@ -961,7 +966,7 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
         const pstateHeaderEl = document.getElementById(`pstate-header-${gpuId}`);
         const pcieHeaderEl = document.getElementById(`pcie-header-${gpuId}`);
         if (pstateHeaderEl) pstateHeaderEl.textContent = `${getMetricValue(gpuInfo, 'performance_state', 'N/A')}`;
-        if (pcieHeaderEl) pcieHeaderEl.textContent = `PCIe ${getMetricValue(gpuInfo, 'pcie_gen', 'N/A')}`;
+        if (pcieHeaderEl) pcieHeaderEl.textContent = `PCIe ${gpuInfo.pcie_gen_max || gpuInfo.pcie_gen || 'N/A'}`;
         const detailModelBadgeEl = document.getElementById(`model-badge-${gpuId}`);
         if (detailModelBadgeEl) {
             const model = gpuInfo._running_model || null;

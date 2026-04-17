@@ -44,8 +44,9 @@ def _extract_vllm_model(cmdline):
 
 
 def _is_ollama_runner(cmdline):
+    # Match only the model runner subprocess, not the server daemon (ollama serve)
     joined = ' '.join(cmdline)
-    return 'ollama' in joined and ('runner' in joined or 'serve' in joined)
+    return 'ollama' in joined and 'runner' in joined
 
 
 def _scan_all_procs():
@@ -106,10 +107,10 @@ def get_running_models(processes, gpu_ids=None):
 
     if ollama_gpu_ids:
         names = _ollama_api_models()
-        label = f'Ollama: {names[0]}' if names else 'Ollama'
-        for gid in ollama_gpu_ids:
-            if gid not in gpu_models:
-                gpu_models[gid] = label
+        if names:
+            for gid in ollama_gpu_ids:
+                if gid not in gpu_models:
+                    gpu_models[gid] = f'Ollama: {names[0]}'
 
     # --- Pass 2: fallback full /proc scan (Intel xpu-smi doesn't report PIDs) ---
     if not gpu_models and gpu_ids:
@@ -119,8 +120,8 @@ def get_running_models(processes, gpu_ids=None):
                 gpu_models[gid] = f'vLLM: {vllm_model}'
         elif ollama_found:
             names = _ollama_api_models()
-            label = f'Ollama: {names[0]}' if names else 'Ollama'
-            for gid in gpu_ids:
-                gpu_models[gid] = label
+            if names:  # Only show when a model is actually loaded
+                for gid in gpu_ids:
+                    gpu_models[gid] = f'Ollama: {names[0]}'
 
     return gpu_models
