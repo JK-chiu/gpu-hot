@@ -177,7 +177,6 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                 <div class="gpu-detail-specs">
                     ${hasFan ? `<span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}${fanUnit}</span>` : ''}
                     <span class="spec-tag" id="sgo-pstate-badge-${gpuId}">${gpuInfo.performance_state || ''}</span>
-                    <span class="spec-tag">PCIe ${gpuInfo.pcie_gen_max || gpuInfo.pcie_gen || ''}</span>
                     <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
                     ${hasMetric(gpuInfo, 'architecture') ? `<span class="spec-tag">${gpuInfo.architecture}</span>` : ''}
                     <span class="spec-tag">${gpuInfo._backend || (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
