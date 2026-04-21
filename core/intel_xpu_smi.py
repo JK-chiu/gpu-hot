@@ -173,6 +173,39 @@ def _hwmon_temps(drm_device):
     return result
 
 
+def _hwmon_energy_wh(pci_bdf):
+    """
+    Read GPU energy from hwmon energy*_input (µJ) under /sys/bus/pci/devices/{bdf}/hwmon.
+    Uses 'pkg' sensor when available, falls back to any energy sensor.
+    Returns Wh float, or None if unavailable.
+    """
+    base = f'/sys/bus/pci/devices/{pci_bdf}/hwmon'
+    try:
+        dirs = [d for d in glob.glob(f'{base}/hwmon*') if os.path.isdir(d)]
+        if not dirs:
+            return None
+        d = dirs[0]
+        sensors = {}
+        for input_path in glob.glob(f'{d}/energy*_input'):
+            raw = _read_sysfs_int(input_path)
+            if raw is None:
+                continue
+            label_path = input_path.replace('_input', '_label')
+            label = 'unknown'
+            if os.path.exists(label_path):
+                try:
+                    label = open(label_path).read().strip()
+                except Exception:
+                    pass
+            sensors[label] = raw / 1_000_000.0  # µJ → J
+        if not sensors:
+            return None
+        energy_j = sensors.get('pkg') or next(iter(sensors.values()))
+        return energy_j / 3600.0  # J → Wh
+    except Exception:
+        return None
+
+
 def _hwmon_fan_rpm(drm_device):
     """
     Read fan RPM values from hwmon.
@@ -305,11 +338,16 @@ def collect_intel_gpu_metrics(intel_gpu_info):
         data.update(metrics)
 
         # Convert energy from Joules → Wh (same field name as NVIDIA path)
-        # 262144 J = 2^18 is a sentinel value returned by xpu-smi when the metric
-        # is unsupported on this GPU (e.g. Arc Pro B60). Suppress it.
+        # 262144 J = 2^18 is a sentinel when xpu-smi can't read energy (e.g. missing
+        # CAP_SYS_RAWIO for MSR). Fall back to hwmon energy*_input (µJ) which is
+        # accessible via the /sys/bus/pci/devices volume mount.
         energy_j = _safe_float(data.pop('_energy_consumed_j', None))
         if energy_j > 0 and energy_j != 262144.0:
             data['energy_consumption_wh'] = energy_j / 3600.0
+        else:
+            hwmon_wh = _hwmon_energy_wh(pci_bdf)
+            if hwmon_wh is not None:
+                data['energy_consumption_wh'] = hwmon_wh
 
         results[xpu_id] = data
 
