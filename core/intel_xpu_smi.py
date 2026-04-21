@@ -304,6 +304,11 @@ def collect_intel_gpu_metrics(intel_gpu_info):
         }
         data.update(metrics)
 
+        # Arc Battlemage (Xe2): xpu-smi Compute Engine util is N/A on this GPU model.
+        # Fall back to memory_utilization as the best activity proxy for LLM workloads.
+        if data.get('utilization', 0.0) == 0.0 and data.get('memory_utilization', 0.0) > 0:
+            data['utilization'] = data['memory_utilization']
+
         # Convert energy from Joules → Wh (same field name as NVIDIA path)
         energy_j = _safe_float(data.pop('_energy_consumed_j', None))
         if energy_j > 0:
