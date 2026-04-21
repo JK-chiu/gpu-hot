@@ -305,8 +305,10 @@ def collect_intel_gpu_metrics(intel_gpu_info):
         data.update(metrics)
 
         # Convert energy from Joules → Wh (same field name as NVIDIA path)
+        # 262144 J = 2^18 is a sentinel value returned by xpu-smi when the metric
+        # is unsupported on this GPU (e.g. Arc Pro B60). Suppress it.
         energy_j = _safe_float(data.pop('_energy_consumed_j', None))
-        if energy_j > 0:
+        if energy_j > 0 and energy_j != 262144.0:
             data['energy_consumption_wh'] = energy_j / 3600.0
 
         results[xpu_id] = data
