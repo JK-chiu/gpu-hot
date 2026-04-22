@@ -97,6 +97,7 @@ class TestMonitorLoop:
         monitor = MagicMock()
         monitor.running = True
         monitor.use_smi = {'0': False}
+        monitor.intel_gpus = {}
         monitor.get_gpu_data = AsyncMock(return_value={})
         monitor.get_processes = AsyncMock(return_value=[])
 
@@ -125,11 +126,46 @@ class TestMonitorLoop:
         assert sleep_intervals[0] == 0.5  # config.UPDATE_INTERVAL
 
     @pytest.mark.asyncio
+    async def test_interval_intel(self):
+        """Uses slower NVIDIA_SMI_INTERVAL when Intel GPUs rely on xpu-smi."""
+        monitor = MagicMock()
+        monitor.running = True
+        monitor.use_smi = {'0': False}
+        monitor.intel_gpus = {'0': {'name': 'Intel Arc Pro'}}
+        monitor.get_gpu_data = AsyncMock(return_value={})
+        monitor.get_processes = AsyncMock(return_value=[])
+
+        sleep_intervals = []
+
+        async def capture_sleep(interval):
+            sleep_intervals.append(interval)
+            monitor.running = False
+
+        with patch('asyncio.sleep', side_effect=capture_sleep), \
+             patch('psutil.virtual_memory') as mock_vmem, \
+             patch('psutil.cpu_percent', return_value=10.0), \
+             patch('psutil.cpu_count', return_value=4), \
+             patch('psutil.swap_memory', side_effect=Exception), \
+             patch('psutil.cpu_freq', return_value=None), \
+             patch('psutil.getloadavg', side_effect=AttributeError), \
+             patch('psutil.net_io_counters', side_effect=Exception), \
+             patch('psutil.disk_io_counters', return_value=None):
+
+            mock_vmem.return_value = MagicMock(
+                percent=50.0, total=32*1024**3, used=16*1024**3, available=16*1024**3
+            )
+
+            await monitor_loop(monitor, set())
+
+        assert sleep_intervals[0] == 2.0  # config.NVIDIA_SMI_INTERVAL
+
+    @pytest.mark.asyncio
     async def test_interval_smi(self):
         """Uses slower NVIDIA_SMI_INTERVAL when any GPU uses nvidia-smi."""
         monitor = MagicMock()
         monitor.running = True
         monitor.use_smi = {'0': True}
+        monitor.intel_gpus = {}
         monitor.get_gpu_data = AsyncMock(return_value={})
         monitor.get_processes = AsyncMock(return_value=[])
 

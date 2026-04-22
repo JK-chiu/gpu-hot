@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := help
 COMPOSE      := docker compose
+INTEL_COMPOSE := $(COMPOSE) -f docker-compose.intel.yml
+TEST_COMPOSE := $(COMPOSE) -f tests/docker-compose.unittest.yml
 URL          := http://localhost:1312
 ARCHIVE_DIR  ?= dist
 # Set the image variant exported by `make export`: nvidia or intel.
@@ -10,7 +12,7 @@ ifeq ($(EXPORT_VARIANT),nvidia)
 EXPORT_COMPOSE := $(COMPOSE)
 EXPORT_IMAGE   := gpu-hot:latest
 else ifeq ($(EXPORT_VARIANT),intel)
-EXPORT_COMPOSE := $(COMPOSE) -f docker-compose.intel.yml
+EXPORT_COMPOSE := $(INTEL_COMPOSE)
 EXPORT_IMAGE   := gpu-hot:intel
 else
 $(error Unsupported EXPORT_VARIANT '$(EXPORT_VARIANT)'. Use nvidia or intel)
@@ -19,7 +21,7 @@ endif
 EXPORT_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-$(EXPORT_VARIANT)-image.tar.gz
 SOURCE_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-source.tar.gz
 
-.PHONY: help build nvidia up intel down logs test verify clean status check-intel export export-source
+.PHONY: help nvidia up intel down logs test verify clean status check-intel export export-source
 
 help:
 	@echo "GPU Hot – Docker targets"
@@ -39,9 +41,6 @@ help:
 	@echo ""
 	@echo "Dashboard port: 1312  →  $(URL)"
 
-build:
-	$(COMPOSE) build
-
 nvidia:
 	$(COMPOSE) up -d --build
 	@echo "NVIDIA dashboard → $(URL)"
@@ -49,16 +48,14 @@ nvidia:
 up: nvidia
 
 intel:
-	$(COMPOSE) -f docker-compose.intel.yml up -d --build
+	$(INTEL_COMPOSE) up -d --build
 	@echo ""
 	@echo "Intel Arc dashboard → $(URL)"
 	@echo "Run 'make verify' to confirm GPU data is flowing"
 
 down:
 	-$(COMPOSE) down 2>/dev/null
-	-$(COMPOSE) -f docker-compose.intel.yml down 2>/dev/null
-	-$(COMPOSE) -f docker-compose.mixed.yml down 2>/dev/null
-	-$(COMPOSE) -f docker-compose.dev.yml down 2>/dev/null
+	-$(INTEL_COMPOSE) down 2>/dev/null
 
 logs:
 	@docker logs -f $$(docker ps --filter "name=gpu-hot" --format "{{.Names}}" | head -1)
@@ -114,7 +111,8 @@ export-source:
 		--exclude='*.pyc' \
 		.
 	@echo "Source archive ready: $(SOURCE_ARCHIVE)"
-	@echo "Rebuild on target machine with: tar xzf $(SOURCE_ARCHIVE) && cd gpu-hot && docker compose up -d --build"
+	@echo "Rebuild on target machine with: tar xzf $(SOURCE_ARCHIVE) && cd gpu-hot && make nvidia"
+	@echo "Switch to Intel rebuilds by running: make intel"
 
 check-intel:
 	@echo "=== Intel GPU host check ==="
@@ -132,10 +130,9 @@ check-intel:
 	@lsmod | grep -E '^(i915|xe)\s' || echo "  WARN: i915/xe module not loaded"
 
 test:
-	docker compose -f tests/docker-compose.unittest.yml run --rm unittest
+	$(TEST_COMPOSE) run --build --rm unittest
 
 clean:
 	-$(COMPOSE) down --rmi all --volumes --remove-orphans 2>/dev/null
-	-$(COMPOSE) -f docker-compose.intel.yml down --rmi all --volumes --remove-orphans 2>/dev/null
-	-$(COMPOSE) -f docker-compose.dev.yml down --rmi all --volumes --remove-orphans 2>/dev/null
-	-$(COMPOSE) -f tests/docker-compose.unittest.yml down --rmi all --volumes --remove-orphans 2>/dev/null
+	-$(INTEL_COMPOSE) down --rmi all --volumes --remove-orphans 2>/dev/null
+	-$(TEST_COMPOSE) down --rmi all --volumes --remove-orphans 2>/dev/null

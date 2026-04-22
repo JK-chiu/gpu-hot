@@ -1,11 +1,14 @@
 """Async WebSocket handlers for real-time monitoring"""
 
 import asyncio
-import psutil
-import logging
 import json
+import logging
+from collections.abc import Mapping
 from datetime import datetime
+
+import psutil
 from fastapi import WebSocket
+
 from . import config
 from .model_detector import get_running_models
 
@@ -13,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 # Global WebSocket connections
 websocket_connections = set()
+
+
+def _has_detected_intel_gpus(monitor):
+    """Return True only when monitor exposes a real non-empty Intel GPU mapping."""
+    intel_gpus = getattr(monitor, 'intel_gpus', None)
+    return isinstance(intel_gpus, Mapping) and bool(intel_gpus)
+
 
 def register_handlers(app, monitor):
     """Register FastAPI WebSocket handlers"""
@@ -41,7 +51,7 @@ async def monitor_loop(monitor, connections):
     """Async background loop that collects and emits GPU data"""
     # Use slower interval when any GPU relies on a subprocess tool (nvidia-smi or xpu-smi)
     uses_nvidia_smi = any(monitor.use_smi.values()) if hasattr(monitor, 'use_smi') else False
-    has_intel = bool(getattr(monitor, 'intel_gpus', {}))
+    has_intel = _has_detected_intel_gpus(monitor)
     uses_subprocess = uses_nvidia_smi or has_intel
     update_interval = config.NVIDIA_SMI_INTERVAL if uses_subprocess else config.UPDATE_INTERVAL
 
@@ -146,4 +156,3 @@ async def monitor_loop(monitor, connections):
             logger.error(f"Error in monitor loop: {e}")
         
         await asyncio.sleep(update_interval)
-
