@@ -71,6 +71,7 @@ function loadSocketHandlers(locationOverride) {
         globalThis.createWebSocketConnection = createWebSocketConnection;
         globalThis.connectWebSocket = connectWebSocket;
         globalThis.setupWebSocketHandlers = setupWebSocketHandlers;
+        globalThis.handleSocketMessage = handleSocketMessage;
         globalThis.handleSocketOpen = handleSocketOpen;
         globalThis.handleSocketClose = handleSocketClose;
         globalThis.handleSocketError = handleSocketError;
@@ -177,5 +178,71 @@ describe('attemptReconnect', () => {
         const first = global.reconnectInterval;
         attemptReconnect(); // Should be a no-op
         expect(global.reconnectInterval).toBe(first);
+    });
+});
+
+describe('handleSocketMessage overview layout', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        loadSocketHandlers();
+        globalThis.initOverviewMiniChart = vi.fn();
+        globalThis.initAggregateChart = vi.fn();
+        document.body.innerHTML = `
+            <span id="connection-status">Disconnected</span>
+            <span id="status-dot"></span>
+            <div id="overview-container"><div class="loading">Loading</div></div>
+            <div id="processes-content" class="processes-content"></div>
+            <div class="processes-header"></div>
+            <span class="toggle-icon"></span>
+        `;
+    });
+
+    afterEach(() => {
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        global.clearInterval(global.reconnectInterval);
+    });
+
+    it('renders expanded overview cards for local multi-GPU nodes up to four GPUs', () => {
+        const payload = {
+            gpus: {
+                0: {
+                    name: 'Intel Arc Pro',
+                    vendor: 'Intel',
+                    utilization: 0,
+                    temperature: 50,
+                    memory_used: 22000,
+                    memory_total: 24576,
+                    power_draw: 40,
+                    power_limit: 220,
+                    fan_speed: 1800,
+                    clock_graphics: 1550,
+                    driver_version: 'xe',
+                    _backend: 'xpu-smi'
+                },
+                1: {
+                    name: 'Intel Arc Pro',
+                    vendor: 'Intel',
+                    utilization: 0,
+                    temperature: 48,
+                    memory_used: 22100,
+                    memory_total: 24576,
+                    power_draw: 42,
+                    power_limit: 220,
+                    fan_speed: 0,
+                    clock_graphics: 1550,
+                    driver_version: 'xe',
+                    _backend: 'xpu-smi'
+                }
+            },
+            processes: [],
+            system: null
+        };
+
+        handleSocketMessage({ data: JSON.stringify(payload) });
+
+        expect(document.querySelectorAll('.single-gpu-overview')).toHaveLength(2);
+        expect(document.querySelectorAll('.overview-gpu-card')).toHaveLength(0);
+        expect(document.getElementById('aggregate-card')).not.toBeNull();
     });
 });

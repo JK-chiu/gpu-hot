@@ -153,6 +153,12 @@
     transform: translateX(2px);
 }
 
+.overview-grid>.single-gpu-overview+.single-gpu-overview,
+.node-grid>.single-gpu-overview+.single-gpu-overview {
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-subtle);
+}
+
 .sgo-header {
     margin-bottom: var(--space-xs);
 }
