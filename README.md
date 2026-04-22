@@ -65,8 +65,8 @@ Use the built-in export targets when you need an offline handoff.
 
 **On the source machine:**
 ```bash
-make export                        # NVIDIA image -> dist/gpu-hot-<version>-nvidia-image.tar.gz
-make export EXPORT_VARIANT=intel   # Intel image -> dist/gpu-hot-<version>-intel-image.tar.gz
+# In Makefile, set EXPORT_VARIANT := nvidia or intel
+make export                       # image -> dist/gpu-hot-<version>-<variant>-image.tar.gz
 make export-source                 # optional source bundle -> dist/gpu-hot-<version>-source.tar.gz
 ```
 

@@ -2,26 +2,21 @@
 COMPOSE      := docker compose
 URL          := http://localhost:1312
 ARCHIVE_DIR  ?= dist
-EXPORT_VARIANT ?= nvidia
+# Set the image variant exported by `make export`: nvidia or intel.
+EXPORT_VARIANT := nvidia
 VERSION      := $(shell sed -n 's/__version__ = "\(.*\)"/\1/p' version.py)
 
 ifeq ($(EXPORT_VARIANT),nvidia)
-EXPORT_VARIANT_NAME := nvidia
-EXPORT_COMPOSE := $(COMPOSE)
-EXPORT_IMAGE   := gpu-hot:latest
-else ifeq ($(EXPORT_VARIANT),prod)
-EXPORT_VARIANT_NAME := nvidia
 EXPORT_COMPOSE := $(COMPOSE)
 EXPORT_IMAGE   := gpu-hot:latest
 else ifeq ($(EXPORT_VARIANT),intel)
-EXPORT_VARIANT_NAME := intel
 EXPORT_COMPOSE := $(COMPOSE) -f docker-compose.intel.yml
 EXPORT_IMAGE   := gpu-hot:intel
 else
 $(error Unsupported EXPORT_VARIANT '$(EXPORT_VARIANT)'. Use nvidia or intel)
 endif
 
-EXPORT_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-$(EXPORT_VARIANT_NAME)-image.tar.gz
+EXPORT_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-$(EXPORT_VARIANT)-image.tar.gz
 SOURCE_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-source.tar.gz
 
 .PHONY: help build nvidia up intel down logs test verify clean status check-intel export export-source
@@ -37,7 +32,7 @@ help:
 	@echo "  make status      Show container & health status"
 	@echo "  make verify      Wait for service then hit health endpoints"
 	@echo "  make test        Run backend + frontend unit tests"
-	@echo "  make export      Build and export an image archive (set EXPORT_VARIANT=nvidia|intel)"
+	@echo "  make export      Build and export the image selected by EXPORT_VARIANT at the top of this file"
 	@echo "  make export-source  Create a source tarball for rebuilds on another machine"
 	@echo "  make clean       Remove all containers, images, volumes"
 	@echo "  make check-intel Verify host is ready for Intel GPU passthrough"
