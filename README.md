@@ -23,6 +23,11 @@ Real-time NVIDIA GPU monitoring dashboard. Lightweight, web-based, and self-host
 
 ## Usage
 
+GPU Hot now exposes two deployment variants from the project root:
+
+- `make nvidia` for NVIDIA hosts
+- `make intel` for Intel Arc hosts
+
 Monitor a single machine or an entire cluster with the same Docker image.
 
 **Single machine:**
@@ -49,10 +54,40 @@ Open `http://localhost:1312`
 ```bash
 git clone https://github.com/psalias2006/gpu-hot
 cd gpu-hot
-docker-compose up --build
+make nvidia
 ```
 
 **Requirements:** Docker + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+## Transfer to another machine
+
+Use the built-in export targets when you need an offline handoff.
+
+**On the source machine:**
+```bash
+make export                        # NVIDIA image -> dist/gpu-hot-<version>-nvidia-image.tar.gz
+make export EXPORT_VARIANT=intel   # Intel image -> dist/gpu-hot-<version>-intel-image.tar.gz
+make export-source                 # optional source bundle -> dist/gpu-hot-<version>-source.tar.gz
+```
+
+Copy the archive in `dist/` to the target machine with `scp`, `rsync`, a USB drive, or any other transfer method.
+
+**On the target machine (image archive):**
+```bash
+docker load -i gpu-hot-<version>-nvidia-image.tar.gz
+docker run -d --gpus all -p 1312:1312 gpu-hot:latest
+```
+
+**On the target machine (source bundle):**
+```bash
+tar xzf gpu-hot-<version>-source.tar.gz
+cd gpu-hot
+make nvidia
+```
+
+Use `make intel` instead when rebuilding on an Intel Arc host.
+
+Image archives should be loaded on a compatible CPU architecture. If the source and target machines differ, transfer the source bundle and rebuild on the target instead.
 
 ---
 

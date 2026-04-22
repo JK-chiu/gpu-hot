@@ -1,21 +1,44 @@
 .DEFAULT_GOAL := help
 COMPOSE      := docker compose
 URL          := http://localhost:1312
+ARCHIVE_DIR  ?= dist
+EXPORT_VARIANT ?= nvidia
+VERSION      := $(shell sed -n 's/__version__ = "\(.*\)"/\1/p' version.py)
 
-.PHONY: help build up intel mixed dev down logs test verify clean status check-intel
+ifeq ($(EXPORT_VARIANT),nvidia)
+EXPORT_VARIANT_NAME := nvidia
+EXPORT_COMPOSE := $(COMPOSE)
+EXPORT_IMAGE   := gpu-hot:latest
+else ifeq ($(EXPORT_VARIANT),prod)
+EXPORT_VARIANT_NAME := nvidia
+EXPORT_COMPOSE := $(COMPOSE)
+EXPORT_IMAGE   := gpu-hot:latest
+else ifeq ($(EXPORT_VARIANT),intel)
+EXPORT_VARIANT_NAME := intel
+EXPORT_COMPOSE := $(COMPOSE) -f docker-compose.intel.yml
+EXPORT_IMAGE   := gpu-hot:intel
+else
+$(error Unsupported EXPORT_VARIANT '$(EXPORT_VARIANT)'. Use nvidia or intel)
+endif
+
+EXPORT_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-$(EXPORT_VARIANT_NAME)-image.tar.gz
+SOURCE_ARCHIVE ?= $(ARCHIVE_DIR)/gpu-hot-$(VERSION)-source.tar.gz
+
+.PHONY: help build nvidia up intel down logs test verify clean status check-intel export export-source
 
 help:
 	@echo "GPU Hot – Docker targets"
 	@echo ""
-	@echo "  make up          Start NVIDIA-only service (requires NVIDIA Container Toolkit)"
-	@echo "  make intel       Start Intel Arc-only service (requires /dev/dri + xpu-smi)"
-	@echo "  make mixed       Start NVIDIA + Intel Arc simultaneously"
-	@echo "  make dev         Start dev image (no GPU required, empty data)"
+	@echo "  make nvidia      Start NVIDIA service (requires NVIDIA Container Toolkit)"
+	@echo "  make intel       Start Intel Arc service (requires /dev/dri + xpu-smi)"
+	@echo "  make up          Alias for make nvidia"
 	@echo "  make down        Stop all containers"
 	@echo "  make logs        Follow active container logs"
 	@echo "  make status      Show container & health status"
 	@echo "  make verify      Wait for service then hit health endpoints"
 	@echo "  make test        Run backend + frontend unit tests"
+	@echo "  make export      Build and export an image archive (set EXPORT_VARIANT=nvidia|intel)"
+	@echo "  make export-source  Create a source tarball for rebuilds on another machine"
 	@echo "  make clean       Remove all containers, images, volumes"
 	@echo "  make check-intel Verify host is ready for Intel GPU passthrough"
 	@echo ""
@@ -24,25 +47,17 @@ help:
 build:
 	$(COMPOSE) build
 
-up: build
-	$(COMPOSE) up -d
+nvidia:
+	$(COMPOSE) up -d --build
 	@echo "NVIDIA dashboard → $(URL)"
+
+up: nvidia
 
 intel:
 	$(COMPOSE) -f docker-compose.intel.yml up -d --build
 	@echo ""
 	@echo "Intel Arc dashboard → $(URL)"
 	@echo "Run 'make verify' to confirm GPU data is flowing"
-
-mixed:
-	$(COMPOSE) -f docker-compose.mixed.yml up -d --build
-	@echo ""
-	@echo "NVIDIA + Intel Arc dashboard → $(URL)"
-	@echo "Run 'make verify' to confirm GPU data is flowing"
-
-dev:
-	$(COMPOSE) -f docker-compose.dev.yml up -d --build
-	@echo "Dev dashboard → $(URL)"
 
 down:
 	-$(COMPOSE) down 2>/dev/null
@@ -76,6 +91,35 @@ verify:
 	echo "Service did not respond after 45s"; \
 	$(MAKE) logs; \
 	exit 1
+
+export:
+	@mkdir -p $(ARCHIVE_DIR)
+	@echo "Building $(EXPORT_VARIANT) image ($(EXPORT_IMAGE)) ..."
+	$(EXPORT_COMPOSE) build gpu-hot
+	@echo "Writing $(EXPORT_ARCHIVE) ..."
+	@tmp="$(EXPORT_ARCHIVE).tmp"; \
+	rm -f "$$tmp"; \
+	docker image save $(EXPORT_IMAGE) | gzip > "$$tmp"; \
+	mv "$$tmp" "$(EXPORT_ARCHIVE)"
+	@echo "Image archive ready: $(EXPORT_ARCHIVE)"
+	@echo "Load on target machine with: docker load -i $(EXPORT_ARCHIVE)"
+
+export-source:
+	@mkdir -p $(ARCHIVE_DIR)
+	@echo "Writing $(SOURCE_ARCHIVE) ..."
+	@tar -czf $(SOURCE_ARCHIVE) \
+		--exclude-vcs \
+		--exclude='dist' \
+		--exclude='build' \
+		--exclude='.venv' \
+		--exclude='venv' \
+		--exclude='__pycache__' \
+		--exclude='.pytest_cache' \
+		--exclude='node_modules' \
+		--exclude='*.pyc' \
+		.
+	@echo "Source archive ready: $(SOURCE_ARCHIVE)"
+	@echo "Rebuild on target machine with: tar xzf $(SOURCE_ARCHIVE) && cd gpu-hot && docker compose up -d --build"
 
 check-intel:
 	@echo "=== Intel GPU host check ==="
