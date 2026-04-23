@@ -10,7 +10,7 @@ GPU Hot is a real-time NVIDIA GPU monitoring dashboard. FastAPI serves WebSocket
 
 ```bash
 # Run all tests (backend + frontend, Docker-based)
-./run_tests.sh
+make test
 
 # Run only the test container manually
 docker compose -f tests/docker-compose.unittest.yml run --rm unittest
