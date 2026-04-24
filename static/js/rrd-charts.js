@@ -44,7 +44,7 @@ const RRD_METRICS = {
     power_draw: {
         label: 'Power',
         unit: 'W',
-        ySuggestedMax: 300,
+        ySuggestedMax: 150,
         yStepSize: 100,
         color: 'rgba(255, 255, 255, 0.50)',
         fillTop: 'rgba(255, 255, 255, 0.07)',
@@ -172,6 +172,28 @@ function formatRRDValue(metricKey, value) {
     return Math.round(value).toString();
 }
 
+function _getRRDPowerMax(gpuId) {
+    if (typeof chartData !== 'undefined' && chartData[gpuId] && chartData[gpuId]._powerLimit > 0) {
+        return chartData[gpuId]._powerLimit;
+    }
+    return null;
+}
+
+function applyRRDPowerMax(gpuId, powerMax) {
+    const state = rrdState[gpuId];
+    if (!state || !state.charts.power_draw) return;
+    const chart = state.charts.power_draw;
+    if (powerMax > 0) {
+        chart.options.scales.y.max = powerMax;
+        const step = powerMax <= 200 ? 50 : powerMax <= 400 ? 100 : 200;
+        chart.options.scales.y.ticks.stepSize = step;
+    } else {
+        delete chart.options.scales.y.max;
+        chart.options.scales.y.suggestedMax = RRD_METRICS.power_draw.ySuggestedMax;
+    }
+    chart.update('none');
+}
+
 function initRRDSection(gpuId) {
     const section = document.getElementById(`rrd-section-${gpuId}`);
     if (!section || typeof Chart === 'undefined') return;
@@ -192,6 +214,9 @@ function initRRDSection(gpuId) {
         if (!canvas) return;
         state.charts[metricKey] = new Chart(canvas, createRRDChartConfig(metricKey, canvas));
     });
+
+    const powerMax = _getRRDPowerMax(gpuId);
+    if (powerMax) applyRRDPowerMax(gpuId, powerMax);
 }
 
 function setActiveRRDRange(gpuId, range) {
@@ -299,3 +324,4 @@ window.loadRRDRange = loadRRDRange;
 window.renderRRDCharts = renderRRDCharts;
 window.updateRRDLegend = updateRRDLegend;
 window.destroyRRDSection = destroyRRDSection;
+window.applyRRDPowerMax = applyRRDPowerMax;
