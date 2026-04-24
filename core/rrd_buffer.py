@@ -226,7 +226,7 @@ class RRDBuffer:
         end_ts = int(time.time())
         if step > 1:
             end_ts = int(end_ts // step * step)
-        start_ts = end_ts - ((points - 1) * step)
+        start_ts = end_ts - (points * step)
 
         with self._buffer_lock:
             samples = list(self._buffers.get(gpu_id, ()))
@@ -235,7 +235,7 @@ class RRDBuffer:
 
     def _query_db(self, gpu_id, table, points, step):
         end_ts = int(time.time() // step * step)
-        start_ts = end_ts - ((points - 1) * step)
+        start_ts = end_ts - (points * step)
         rows = self._query_db_sync(gpu_id, table, start_ts, end_ts)
         return self._build_series_from_rows(rows, start_ts, points, step)
 
