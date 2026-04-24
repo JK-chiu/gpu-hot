@@ -20,7 +20,6 @@ services:
       - /dev/dri:/dev/dri
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
       - rrd_data:/app/data
       - /sys/class/drm:/sys/class/drm:ro
       - /sys/bus/pci/devices:/sys/bus/pci/devices:ro
