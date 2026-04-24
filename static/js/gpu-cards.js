@@ -343,7 +343,11 @@ function createRRDChartCard(metricKey, title, gpuId) {
     return `
         <div class="rrd-chart-wrap">
             <div class="rrd-chart-header">
-                <span class="rrd-chart-title">${title}</span>
+                <div class="rrd-chart-title-group">
+                    <span class="rrd-chart-title">${title}</span>
+                    <button class="rrd-zoom-reset" id="rrd-reset-${metricKey}-${gpuId}"
+                            onclick="resetRRDZoom('${gpuId}','${metricKey}')" title="Reset zoom">↺</button>
+                </div>
                 <div class="rrd-chart-stats">
                     <span class="rrd-stat"><span class="rrd-stat-label">Cur</span><span class="rrd-stat-value" id="rrd-stat-${metricKey}-cur-${gpuId}">--</span></span>
                     <span class="rrd-stat"><span class="rrd-stat-label">Avg</span><span class="rrd-stat-value" id="rrd-stat-${metricKey}-avg-${gpuId}">--</span></span>

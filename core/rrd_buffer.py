@@ -20,11 +20,14 @@ class RRDBuffer:
     DEQUE_SECONDS = 300
     ONE_YEAR_SECONDS = 365 * 24 * 60 * 60
     RANGE_CONFIG = {
-        "1min": {"source": "deque", "points": 60, "step": 1},
-        "5min": {"source": "deque", "points": 30, "step": 10},
-        "30min": {"source": "db", "table": "rrd_1min", "points": 30, "step": 60},
-        "2hr": {"source": "db", "table": "rrd_5min", "points": 24, "step": 300},
-        "1day": {"source": "db", "table": "rrd_30min", "points": 48, "step": 1800},
+        # source=deque: read from RAM ring buffer
+        # source=db: direct SELECT, one row per point
+        # source=db_group: GROUP BY step bucket on rrd_30min
+        "1min":  {"source": "deque",    "points": 60,  "step": 1},
+        "5min":  {"source": "db",       "table": "rrd_5min",  "points": 288, "step": 300},
+        "30min": {"source": "db",       "table": "rrd_30min", "points": 336, "step": 1800},
+        "2hr":   {"source": "db_group", "table": "rrd_30min", "points": 360, "step": 7200},
+        "1day":  {"source": "db_group", "table": "rrd_30min", "points": 365, "step": 86400},
     }
     METRICS = ("utilization", "temperature", "memory_pct", "power_draw")
 
@@ -79,12 +82,21 @@ class RRDBuffer:
         config = self.RANGE_CONFIG[range_key]
         if config["source"] == "deque":
             labels, series = self._query_deque(str(gpu_id), range_key)
-        else:
+        elif config["source"] == "db":
             labels, series = self._query_db(
                 str(gpu_id),
                 config["table"],
                 config["points"],
                 config["step"],
+                range_key,
+            )
+        else:  # db_group
+            labels, series = self._query_db_group(
+                str(gpu_id),
+                config["table"],
+                config["points"],
+                config["step"],
+                range_key,
             )
 
         return {
@@ -231,13 +243,19 @@ class RRDBuffer:
         with self._buffer_lock:
             samples = list(self._buffers.get(gpu_id, ()))
 
-        return self._build_series_from_samples(samples, start_ts, points, step)
+        return self._build_series_from_samples(samples, start_ts, points, step, range_key)
 
-    def _query_db(self, gpu_id, table, points, step):
+    def _query_db(self, gpu_id, table, points, step, range_key):
         end_ts = int(time.time() // step * step)
         start_ts = end_ts - (points * step)
         rows = self._query_db_sync(gpu_id, table, start_ts, end_ts)
-        return self._build_series_from_rows(rows, start_ts, points, step)
+        return self._build_series_from_rows(rows, start_ts, points, step, range_key)
+
+    def _query_db_group(self, gpu_id, table, points, step, range_key):
+        end_ts = int(time.time() // step * step)
+        start_ts = end_ts - (points * step)
+        rows = self._query_db_group_sync(gpu_id, table, start_ts, end_ts, step)
+        return self._build_series_from_rows(rows, start_ts, points, step, range_key)
 
     def _query_db_sync(self, gpu_id, table, start_ts, end_ts):
         with sqlite3.connect(self.db_path, timeout=30) as conn:
@@ -251,7 +269,21 @@ class RRDBuffer:
                 (gpu_id, start_ts, end_ts),
             ).fetchall()
 
-    def _build_series_from_samples(self, samples, start_ts, points, step):
+    def _query_db_group_sync(self, gpu_id, table, start_ts, end_ts, step):
+        with sqlite3.connect(self.db_path, timeout=30) as conn:
+            return conn.execute(
+                f"""
+                SELECT ts / ? * ? AS bucket_ts,
+                       avg(util), avg(temp), avg(mem_pct), avg(power)
+                FROM {table}
+                WHERE gpu_id = ? AND ts BETWEEN ? AND ?
+                GROUP BY bucket_ts
+                ORDER BY bucket_ts ASC
+                """,
+                (step, step, gpu_id, start_ts, end_ts),
+            ).fetchall()
+
+    def _build_series_from_samples(self, samples, start_ts, points, step, range_key):
         buckets = [
             {
                 "utilization": [],
@@ -277,21 +309,21 @@ class RRDBuffer:
                 mem_pct = (mem_used / mem_total) * 100
             self._append_number(bucket["memory_pct"], mem_pct)
 
-        labels = [self._format_label(start_ts + (idx * step), step) for idx in range(points)]
+        labels = [self._format_label(start_ts + (idx * step), range_key) for idx in range(points)]
         series = {
             metric: [self._average(bucket[metric]) for bucket in buckets]
             for metric in self.METRICS
         }
         return labels, series
 
-    def _build_series_from_rows(self, rows, start_ts, points, step):
+    def _build_series_from_rows(self, rows, start_ts, points, step, range_key):
         row_map = {row[0]: row[1:] for row in rows}
         labels = []
         series = {metric: [] for metric in self.METRICS}
 
         for idx in range(points):
             ts = start_ts + (idx * step)
-            labels.append(self._format_label(ts, step))
+            labels.append(self._format_label(ts, range_key))
             row = row_map.get(ts)
             if row is None:
                 for metric in self.METRICS:
@@ -348,11 +380,18 @@ class RRDBuffer:
         }
 
     @staticmethod
-    def _format_label(ts, step):
+    def _format_label(ts, range_key):
         dt = datetime.fromtimestamp(ts)
-        if step < 60:
+        if range_key == "1min":
             return dt.strftime("%H:%M:%S")
-        return dt.strftime("%H:%M")
+        if range_key == "5min":
+            return f"{dt.hour:02d}:00"
+        if range_key == "30min":
+            return dt.strftime("%m/%d")
+        if range_key == "2hr":
+            return dt.strftime("%m/%d")
+        # 1day
+        return f"{dt.month}月"
 
     @staticmethod
     def _to_number(value):

@@ -6,11 +6,11 @@
 const rrdState = {};
 
 const RRD_REFRESH_MS = {
-    '1min': 10_000,
-    '5min': 30_000,
-    '30min': 60_000,
-    '2hr': 120_000,
-    '1day': 300_000,
+    '1min':  10_000,
+    '5min':  60_000,
+    '30min': 300_000,
+    '2hr':   900_000,
+    '1day':  3_600_000,
 };
 
 const RRD_METRICS = {
@@ -146,6 +146,19 @@ function createRRDChartConfig(metricKey, canvas) {
                         },
                     },
                 },
+                zoom: {
+                    pan: {
+                        enabled: true,
+                        mode: 'x',
+                        onPanComplete({ chart }) { _showRRDResetBtn(chart); },
+                    },
+                    zoom: {
+                        wheel: { enabled: true, speed: 0.1 },
+                        pinch: { enabled: true },
+                        mode: 'x',
+                        onZoomComplete({ chart }) { _showRRDResetBtn(chart); },
+                    },
+                },
             },
         },
     };
@@ -170,6 +183,21 @@ function formatRRDValue(metricKey, value) {
         return value.toFixed(1).replace(/\.0$/, '');
     }
     return Math.round(value).toString();
+}
+
+function _showRRDResetBtn(chart) {
+    const metricKey = chart.data.datasets[0]?._metricKey;
+    if (!metricKey) return;
+    const btn = chart.canvas.closest('.rrd-chart-wrap')?.querySelector('.rrd-zoom-reset');
+    if (btn) btn.classList.add('visible');
+}
+
+function resetRRDZoom(gpuId, metricKey) {
+    const state = rrdState[gpuId];
+    if (!state || !state.charts[metricKey]) return;
+    state.charts[metricKey].resetZoom();
+    const btn = document.getElementById(`rrd-reset-${metricKey}-${gpuId}`);
+    if (btn) btn.classList.remove('visible');
 }
 
 function _getRRDPowerMax(gpuId) {
@@ -212,7 +240,9 @@ function initRRDSection(gpuId) {
         if (state.charts[metricKey]) return;
         const canvas = document.getElementById(`rrd-${metricKey}-${gpuId}`);
         if (!canvas) return;
-        state.charts[metricKey] = new Chart(canvas, createRRDChartConfig(metricKey, canvas));
+        const config = createRRDChartConfig(metricKey, canvas);
+        config.data.datasets[0]._metricKey = metricKey;
+        state.charts[metricKey] = new Chart(canvas, config);
     });
 
     const powerMax = _getRRDPowerMax(gpuId);
@@ -325,3 +355,4 @@ window.renderRRDCharts = renderRRDCharts;
 window.updateRRDLegend = updateRRDLegend;
 window.destroyRRDSection = destroyRRDSection;
 window.applyRRDPowerMax = applyRRDPowerMax;
+window.resetRRDZoom = resetRRDZoom;

@@ -803,6 +803,43 @@
     min-width: 0;
 }
 
+.rrd-chart-title-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rrd-zoom-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 4px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    line-height: 1;
+    padding: 1px 5px;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.rrd-zoom-reset.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.rrd-zoom-reset:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.10);
+}
+
+.rrd-canvas-wrap canvas {
+    cursor: crosshair;
+}
+
 .rrd-chart-header {
     display: flex;
     align-items: baseline;
