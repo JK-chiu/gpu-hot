@@ -17,6 +17,7 @@ class TestMonitorLoop:
         monitor.use_smi = {}
         monitor.get_gpu_data = AsyncMock(return_value={'0': {'name': 'RTX 3090', 'utilization': 75}})
         monitor.get_processes = AsyncMock(return_value=[])
+        rrd_buffer = MagicMock()
 
         ws = AsyncMock()
         connections = {ws}
@@ -46,9 +47,10 @@ class TestMonitorLoop:
             mock_swap.return_value = MagicMock(percent=5.0)
             mock_net.return_value = MagicMock(bytes_sent=1000, bytes_recv=2000)
 
-            await monitor_loop(monitor, connections)
+            await monitor_loop(monitor, connections, rrd_buffer)
 
         ws.send_text.assert_called_once()
+        rrd_buffer.record.assert_called_once_with('0', {'name': 'RTX 3090', 'utilization': 75})
         sent_data = json.loads(ws.send_text.call_args[0][0])
         assert 'gpus' in sent_data
         assert 'system' in sent_data

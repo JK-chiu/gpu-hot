@@ -88,7 +88,9 @@ class TestEndpoints:
             import core.config
             importlib.reload(core.config)
 
-            with patch('core.monitor.GPUMonitor.__init__', return_value=None):
+            with patch('core.monitor.GPUMonitor.__init__', return_value=None), \
+                 patch('core.rrd_buffer.RRDBuffer.init_db', new_callable=AsyncMock), \
+                 patch('core.rrd_buffer.RRDBuffer.consolidate_loop', new_callable=AsyncMock):
                 if 'app' in sys.modules:
                     importlib.reload(sys.modules['app'])
                 else:
@@ -134,6 +136,35 @@ class TestEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data['gpus'] == {}
+
+    @pytest.mark.asyncio
+    async def test_api_rrd_success(self):
+        from httpx import AsyncClient, ASGITransport
+        self.app.state.rrd_buffer = MagicMock()
+        self.app.state.rrd_buffer.query.return_value = {
+            'labels': ['12:00:00'],
+            'series': {'utilization': [50]},
+            'stats': {'utilization': {'current': 50, 'avg': 50, 'max': 50, 'min': 50}},
+        }
+
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/rrd/0?range=1min")
+
+        assert response.status_code == 200
+        self.app.state.rrd_buffer.query.assert_called_once_with('0', '1min')
+        assert response.json()['labels'] == ['12:00:00']
+
+    @pytest.mark.asyncio
+    async def test_api_rrd_invalid_range(self):
+        from httpx import AsyncClient, ASGITransport
+
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/rrd/0?range=7days")
+
+        assert response.status_code == 400
+        assert response.json()['error'] == 'invalid range'
 
     @pytest.mark.asyncio
     async def test_api_version_github_failure(self):

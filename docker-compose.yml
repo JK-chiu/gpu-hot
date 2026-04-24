@@ -12,6 +12,11 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NODE_NAME=${HOSTNAME:-gpu-hot}
+      - TZ=:/etc/localtime
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - rrd_data:/app/data
     deploy:
       resources:
         reservations:
@@ -28,3 +33,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  rrd_data:

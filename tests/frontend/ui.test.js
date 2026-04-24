@@ -2,7 +2,7 @@
  * Tests for static/js/ui.js
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Globals loaded by setup.js: switchToView, ensureGPUTab, removeGPUTab,
 // autoSwitchSingleGPU, currentTab, registeredGPUs, charts, chartData
@@ -17,6 +17,32 @@ function setupDOM() {
         </div>
     `;
 }
+
+beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+            labels: ['00:00:00'],
+            series: {
+                utilization: [50],
+                temperature: [70],
+                memory_pct: [40],
+                power_draw: [200],
+            },
+            stats: {
+                utilization: { current: 50, avg: 50, max: 50, min: 50 },
+                temperature: { current: 70, avg: 70, max: 70, min: 70 },
+                memory_pct: { current: 40, avg: 40, max: 40, min: 40 },
+                power_draw: { current: 200, avg: 200, max: 200, min: 200 },
+            },
+        }),
+    });
+});
+
+afterEach(() => {
+    Object.keys(rrdState).forEach((gpuId) => destroyRRDSection(gpuId));
+    vi.restoreAllMocks();
+});
 
 describe('switchToView', () => {
     beforeEach(() => {
@@ -72,6 +98,15 @@ describe('ensureGPUTab', () => {
 
         const tab = document.getElementById('tab-gpu-0');
         expect(tab).not.toBeNull();
+    });
+
+    it('initializes RRD history section on first render', () => {
+        const gpuInfo = { name: 'RTX 3090', utilization: 50, memory_used: 4096, memory_total: 8192 };
+        ensureGPUTab('0', gpuInfo, false);
+
+        expect(document.getElementById('rrd-section-0')).not.toBeNull();
+        expect(rrdState['0']).toBeDefined();
+        expect(fetch).toHaveBeenCalledWith('/api/rrd/0?range=1min');
     });
 
     it('is idempotent — does not duplicate', () => {
@@ -131,6 +166,16 @@ describe('removeGPUTab', () => {
         removeGPUTab('0');
 
         expect(global.charts['0']).toBeUndefined();
+    });
+
+    it('destroys RRD state', () => {
+        const gpuInfo = { name: 'RTX 3090', utilization: 50, memory_used: 4096, memory_total: 8192 };
+        ensureGPUTab('0', gpuInfo, false);
+        expect(rrdState['0']).toBeDefined();
+
+        removeGPUTab('0');
+
+        expect(rrdState['0']).toBeUndefined();
     });
 
     it('no-op for unregistered GPU', () => {

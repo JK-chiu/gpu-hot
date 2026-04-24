@@ -97,6 +97,10 @@ function ensureGPUTab(gpuId, gpuInfo, shouldUpdateDOM = true) {
         detailedContainer.innerHTML = createGPUCard(gpuId, gpuInfo);
         if (!chartData[gpuId]) initGPUData(gpuId);
         initGPUCharts(gpuId);
+        if (typeof initRRDSection === 'function') {
+            initRRDSection(gpuId);
+            setActiveRRDRange(gpuId, '1min');
+        }
     } else if (existingCard) {
         updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM);
     }
@@ -122,6 +126,8 @@ function removeGPUTab(gpuId) {
         });
         delete charts[gpuId];
     }
+
+    if (typeof destroyRRDSection === 'function') destroyRRDSection(gpuId);
 
     registeredGPUs.delete(gpuId);
 }

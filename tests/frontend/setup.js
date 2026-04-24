@@ -57,6 +57,7 @@ HTMLCanvasElement.prototype.getContext = function getContext(type) {
 const loadOrder = [
     'chart-config.js',
     'chart-manager.js',
+    'rrd-charts.js',
     'gpu-cards.js',
     'ui.js',
 ];
@@ -122,6 +123,13 @@ for (const file of loadOrder) {
         }
         if (typeof updatePCIeChartStats !== 'undefined') globalThis.updatePCIeChartStats = updatePCIeChartStats;
         if (typeof updateEncDecChartStats !== 'undefined') globalThis.updateEncDecChartStats = updateEncDecChartStats;
+        if (typeof rrdState !== 'undefined') globalThis.rrdState = rrdState;
+        if (typeof initRRDSection !== 'undefined') globalThis.initRRDSection = initRRDSection;
+        if (typeof setActiveRRDRange !== 'undefined') globalThis.setActiveRRDRange = setActiveRRDRange;
+        if (typeof loadRRDRange !== 'undefined') globalThis.loadRRDRange = loadRRDRange;
+        if (typeof renderRRDCharts !== 'undefined') globalThis.renderRRDCharts = renderRRDCharts;
+        if (typeof updateRRDLegend !== 'undefined') globalThis.updateRRDLegend = updateRRDLegend;
+        if (typeof destroyRRDSection !== 'undefined') globalThis.destroyRRDSection = destroyRRDSection;
     })();`;
     vm.runInThisContext(wrappedCode, { filename: file });
 }

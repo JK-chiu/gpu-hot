@@ -24,7 +24,7 @@ def _has_detected_intel_gpus(monitor):
     return isinstance(intel_gpus, Mapping) and bool(intel_gpus)
 
 
-def register_handlers(app, monitor):
+def register_handlers(app, monitor, rrd_buffer=None):
     """Register FastAPI WebSocket handlers"""
     
     @app.websocket("/socket.io/")
@@ -35,7 +35,7 @@ def register_handlers(app, monitor):
         
         if not monitor.running:
             monitor.running = True
-            asyncio.create_task(monitor_loop(monitor, websocket_connections))
+            asyncio.create_task(monitor_loop(monitor, websocket_connections, rrd_buffer))
         
         try:
             # Keep connection alive
@@ -47,7 +47,7 @@ def register_handlers(app, monitor):
             websocket_connections.discard(websocket)
 
 
-async def monitor_loop(monitor, connections):
+async def monitor_loop(monitor, connections, rrd_buffer=None):
     """Async background loop that collects and emits GPU data"""
     # Use slower interval when any GPU relies on a subprocess tool (nvidia-smi or xpu-smi)
     uses_nvidia_smi = any(monitor.use_smi.values()) if hasattr(monitor, 'use_smi') else False
@@ -71,6 +71,13 @@ async def monitor_loop(monitor, connections):
                 monitor.get_gpu_data(),
                 monitor.get_processes()
             )
+
+            if rrd_buffer is not None:
+                try:
+                    for gpu_id, gpu_info in gpu_data.items():
+                        rrd_buffer.record(str(gpu_id), gpu_info)
+                except Exception as e:
+                    logger.debug(f"RRD record error: {e}")
             
             # Core system metrics
             vmem = psutil.virtual_memory()

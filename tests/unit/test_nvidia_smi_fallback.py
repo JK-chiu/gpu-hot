@@ -26,6 +26,8 @@ BASIC_CSV = (
     "1800, 1800, 5001, P0"
 )
 
+FULL_CSV_581_50 = FULL_CSV.replace("535.129.03", "581.50")
+
 
 def _make_result(stdout, returncode=0):
     result = MagicMock()
@@ -52,6 +54,15 @@ class TestParseNvidiaSmi:
         assert gpu['fan_speed'] == 65.0
         assert gpu['clock_graphics'] == 1800.0
         assert gpu['performance_state'] == 'P0'
+
+    @patch('subprocess.run')
+    def test_preserves_driver_version_581_50(self, mock_run):
+        mock_run.return_value = _make_result(FULL_CSV_581_50 + "\n")
+        data = parse_nvidia_smi()
+
+        assert data['0']['driver_version'] == '581.50'
+        assert data['0']['utilization'] == 75.0
+        assert data['0']['memory_total'] == 24576.0
 
     @patch('subprocess.run')
     def test_multi_gpu(self, mock_run):

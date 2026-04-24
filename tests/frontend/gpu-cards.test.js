@@ -262,3 +262,41 @@ describe('createCompactOverviewCard', () => {
         expect(html).toContain("switchToView('gpu-2')");
     });
 });
+
+describe('createGPUCard', () => {
+    const gpuInfo = {
+        name: 'NVIDIA RTX 3090',
+        utilization: 75,
+        temperature: 72,
+        memory_used: 8192,
+        memory_total: 24576,
+        power_draw: 250,
+        power_limit: 350,
+        fan_speed: 65,
+    };
+
+    it('appends the RRD history section', () => {
+        const html = createGPUCard('0', gpuInfo);
+        expect(html).toContain('rrd-section-0');
+        expect(html).toContain('History');
+    });
+
+    it('includes all history range tabs', () => {
+        const html = createGPUCard('0', gpuInfo);
+        expect(html).toContain("setActiveRRDRange('0','1min')");
+        expect(html).toContain("setActiveRRDRange('0','5min')");
+        expect(html).toContain("setActiveRRDRange('0','30min')");
+        expect(html).toContain("setActiveRRDRange('0','2hr')");
+        expect(html).toContain("setActiveRRDRange('0','1day')");
+    });
+
+    it('includes all history canvases and stat ids', () => {
+        const html = createGPUCard('0', gpuInfo);
+        expect(html).toContain('rrd-utilization-0');
+        expect(html).toContain('rrd-temperature-0');
+        expect(html).toContain('rrd-memory_pct-0');
+        expect(html).toContain('rrd-power_draw-0');
+        expect(html).toContain('rrd-stat-utilization-cur-0');
+        expect(html).toContain('rrd-stat-power_draw-min-0');
+    });
+});

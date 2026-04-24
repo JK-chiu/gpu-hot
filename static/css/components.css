@@ -736,6 +736,139 @@
 }
 
 /* ============================================
+   RRD History Section
+   ============================================ */
+
+.rrd-history {
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.rrd-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.rrd-history-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-tertiary);
+}
+
+.rrd-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.rrd-tab {
+    border: 1px solid var(--border-subtle);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-tertiary);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.rrd-tab:hover {
+    color: var(--text-secondary);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.rrd-tab.active {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.rrd-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+}
+
+.rrd-chart-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+.rrd-chart-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.rrd-chart-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-tertiary);
+}
+
+.rrd-chart-stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-md);
+}
+
+.rrd-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.rrd-stat-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+}
+
+.rrd-stat-value {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.rrd-canvas-wrap {
+    height: 110px;
+    min-height: 110px;
+    max-height: 110px;
+    position: relative;
+    overflow: hidden;
+}
+
+.rrd-canvas-wrap > div {
+    height: 100% !important;
+    max-height: 110px !important;
+    min-height: 0;
+}
+
+.rrd-canvas-wrap canvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 110px !important;
+}
+
+/* ============================================
    Star Toast — Minimal Restyle
    ============================================ */
 
@@ -1219,6 +1352,19 @@
         grid-template-columns: 1fr;
     }
 
+    .rrd-history-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .rrd-charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rrd-chart-stats {
+        display: none;
+    }
+
     .sparkline-container {
         height: 130px;
     }
@@ -1278,6 +1424,15 @@
 
     .gpu-detail-title {
         font-size: 18px;
+    }
+
+    .rrd-tabs {
+        gap: 4px;
+    }
+
+    .rrd-tab {
+        padding: 5px 8px;
+        font-size: 10px;
     }
 
     .process-table-header,

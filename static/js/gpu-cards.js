@@ -339,6 +339,25 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
     }
 }
 
+function createRRDChartCard(metricKey, title, gpuId) {
+    return `
+        <div class="rrd-chart-wrap">
+            <div class="rrd-chart-header">
+                <span class="rrd-chart-title">${title}</span>
+                <div class="rrd-chart-stats">
+                    <span class="rrd-stat"><span class="rrd-stat-label">Cur</span><span class="rrd-stat-value" id="rrd-stat-${metricKey}-cur-${gpuId}">--</span></span>
+                    <span class="rrd-stat"><span class="rrd-stat-label">Avg</span><span class="rrd-stat-value" id="rrd-stat-${metricKey}-avg-${gpuId}">--</span></span>
+                    <span class="rrd-stat"><span class="rrd-stat-label">Max</span><span class="rrd-stat-value" id="rrd-stat-${metricKey}-max-${gpuId}">--</span></span>
+                    <span class="rrd-stat"><span class="rrd-stat-label">Min</span><span class="rrd-stat-value" id="rrd-stat-${metricKey}-min-${gpuId}">--</span></span>
+                </div>
+            </div>
+            <div class="rrd-canvas-wrap">
+                <canvas id="rrd-${metricKey}-${gpuId}"></canvas>
+            </div>
+        </div>
+    `;
+}
+
 // ============================================
 // Detailed GPU Card — Three Tier Layout
 // ============================================
@@ -871,6 +890,25 @@ function createGPUCard(gpuId, gpuInfo) {
                     </div>
                 </div>
             </div>
+
+            <section class="rrd-history" id="rrd-section-${gpuId}">
+                <div class="rrd-history-header">
+                    <span class="rrd-history-title">History</span>
+                    <div class="rrd-tabs">
+                        <button class="rrd-tab active" data-range="1min" onclick="setActiveRRDRange('${gpuId}','1min')">1 min</button>
+                        <button class="rrd-tab" data-range="5min" onclick="setActiveRRDRange('${gpuId}','5min')">5 min</button>
+                        <button class="rrd-tab" data-range="30min" onclick="setActiveRRDRange('${gpuId}','30min')">30 min</button>
+                        <button class="rrd-tab" data-range="2hr" onclick="setActiveRRDRange('${gpuId}','2hr')">2 hr</button>
+                        <button class="rrd-tab" data-range="1day" onclick="setActiveRRDRange('${gpuId}','1day')">1 day</button>
+                    </div>
+                </div>
+                <div class="rrd-charts-grid">
+                    ${createRRDChartCard('utilization', 'Utilization', gpuId)}
+                    ${createRRDChartCard('temperature', 'Temperature', gpuId)}
+                    ${createRRDChartCard('memory_pct', 'Memory', gpuId)}
+                    ${createRRDChartCard('power_draw', 'Power', gpuId)}
+                </div>
+            </section>
         </div>
     `;
 }

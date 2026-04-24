@@ -6,6 +6,7 @@ import logging
 import aiohttp
 import re
 import time as _time
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -19,7 +20,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="GPU Hot", version=__version__)
+
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    """Initialize and tear down background services for the app."""
+    rrd_buffer = getattr(app.state, 'rrd_buffer', None)
+    if rrd_buffer is None:
+        yield
+        return
+
+    await rrd_buffer.init_db()
+    app.state.rrd_task = asyncio.create_task(rrd_buffer.consolidate_loop())
+
+    try:
+        yield
+    finally:
+        task = getattr(app.state, 'rrd_task', None)
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="GPU Hot", version=__version__, lifespan=app_lifespan)
 _STATIC_VER = str(int(_time.time()))
 
 # Serve static files
@@ -40,7 +66,9 @@ if config.MODE == 'hub':
     hub = Hub(config.NODE_URLS)
     register_hub_handlers(app, hub)
     monitor_or_hub = hub
-    
+    app.state.rrd_buffer = None
+    app.state.rrd_task = None
+
 else:
     # Default mode: monitor local GPUs and serve dashboard
     logger.info("Starting GPU Hot (FastAPI)")
@@ -48,9 +76,13 @@ else:
     
     from core.monitor import GPUMonitor
     from core.handlers import register_handlers
+    from core.rrd_buffer import RRDBuffer
     
     monitor = GPUMonitor()
-    register_handlers(app, monitor)
+    rrd_buffer = RRDBuffer()
+    app.state.rrd_buffer = rrd_buffer
+    app.state.rrd_task = None
+    register_handlers(app, monitor, rrd_buffer)
     monitor_or_hub = monitor
 
 
@@ -77,6 +109,22 @@ async def api_gpu_data():
         return {"gpus": await monitor_or_hub.get_gpu_data(), "timestamp": "async"}
     
     return {"gpus": {}, "timestamp": "no_data"}
+
+
+@app.get("/api/rrd/{gpu_id}")
+async def api_rrd(gpu_id: str, range: str = "1min"):
+    """REST API endpoint for historical RRD-style GPU data."""
+    valid_ranges = {'1min', '5min', '30min', '2hr', '1day'}
+    if range not in valid_ranges:
+        return JSONResponse({'error': 'invalid range'}, status_code=400)
+
+    rrd_buffer = getattr(app.state, 'rrd_buffer', None)
+    if rrd_buffer is None:
+        return JSONResponse({'error': 'rrd unavailable'}, status_code=404)
+
+    loop = asyncio.get_running_loop()
+    data = await loop.run_in_executor(None, rrd_buffer.query, gpu_id, range)
+    return JSONResponse(data)
 
 
 def compare_versions(current, latest):
