@@ -15,9 +15,13 @@ services:
       - "1312:1312"
     environment:
       - NODE_NAME=${HOSTNAME:-intel-node}
+      - TZ=:/etc/localtime
     devices:
       - /dev/dri:/dev/dri
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - rrd_data:/app/data
       - /sys/class/drm:/sys/class/drm:ro
       - /sys/bus/pci/devices:/sys/bus/pci/devices:ro
     group_add:
@@ -34,3 +38,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+volumes:
+  rrd_data:
