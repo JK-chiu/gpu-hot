@@ -385,13 +385,13 @@ class RRDBuffer:
         if range_key == "1min":
             return dt.strftime("%H:%M:%S")
         if range_key == "5min":
-            return f"{dt.hour:02d}:00"
+            return dt.strftime("%H:%M")   # HH:00 HH:05 HH:10 ...
         if range_key == "30min":
-            return dt.strftime("%m/%d")
+            return dt.strftime("%H:%M")   # 22:00 22:30 ...
         if range_key == "2hr":
-            return dt.strftime("%m/%d")
+            return dt.strftime("%H:%M")   # 00:00 02:00 04:00 ...
         # 1day
-        return f"{dt.month}月"
+        return dt.strftime("%m/%d")
 
     @staticmethod
     def _to_number(value):
