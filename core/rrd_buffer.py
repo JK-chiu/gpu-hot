@@ -389,7 +389,7 @@ class RRDBuffer:
         if range_key == "30min":
             return dt.strftime("%H:%M")   # 22:00 22:30 ...
         if range_key == "2hr":
-            return dt.strftime("%H:%M")   # 00:00 02:00 04:00 ...
+            return dt.strftime("%m/%d")
         # 1day
         return dt.strftime("%m/%d")
 
