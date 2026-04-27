@@ -139,6 +139,12 @@ function createRRDChartConfig(metricKey, canvas) {
                     titleFont: { size: 11, weight: '600' },
                     bodyFont: { size: 11 },
                     callbacks: {
+                        title(context) {
+                            const idx = context[0]?.dataIndex;
+                            const ts = context[0]?.chart?.data?._timestamps;
+                            if (ts != null && idx != null) return ts[idx];
+                            return context[0]?.label || '';
+                        },
                         label(context) {
                             const value = context.parsed.y;
                             if (value == null) return `${metric.label}: --`;
@@ -304,6 +310,7 @@ function renderRRDCharts(gpuId, data) {
         if (!chart) return;
         const series = data.series && Array.isArray(data.series[metricKey]) ? data.series[metricKey] : [];
         chart.data.labels = Array.isArray(data.labels) ? data.labels : [];
+        chart.data._timestamps = Array.isArray(data.timestamps) ? data.timestamps : chart.data.labels;
         if (chart.data.datasets[0]) {
             chart.data.datasets[0].data = series;
         }

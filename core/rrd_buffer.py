@@ -81,9 +81,9 @@ class RRDBuffer:
         """Return labels, series and stats for one history range."""
         config = self.RANGE_CONFIG[range_key]
         if config["source"] == "deque":
-            labels, series = self._query_deque(str(gpu_id), range_key)
+            labels, timestamps, series = self._query_deque(str(gpu_id), range_key)
         elif config["source"] == "db":
-            labels, series = self._query_db(
+            labels, timestamps, series = self._query_db(
                 str(gpu_id),
                 config["table"],
                 config["points"],
@@ -91,7 +91,7 @@ class RRDBuffer:
                 range_key,
             )
         else:  # db_group
-            labels, series = self._query_db_group(
+            labels, timestamps, series = self._query_db_group(
                 str(gpu_id),
                 config["table"],
                 config["points"],
@@ -103,6 +103,7 @@ class RRDBuffer:
             "gpu_id": str(gpu_id),
             "range": range_key,
             "labels": labels,
+            "timestamps": timestamps,
             "series": series,
             "stats": {metric: self._calculate_stats(values) for metric, values in series.items()},
         }
@@ -310,20 +311,23 @@ class RRDBuffer:
             self._append_number(bucket["memory_pct"], mem_pct)
 
         labels = [self._format_label(start_ts + (idx * step), range_key) for idx in range(points)]
+        timestamps = [self._format_tooltip(start_ts + (idx * step), range_key) for idx in range(points)]
         series = {
             metric: [self._average(bucket[metric]) for bucket in buckets]
             for metric in self.METRICS
         }
-        return labels, series
+        return labels, timestamps, series
 
     def _build_series_from_rows(self, rows, start_ts, points, step, range_key):
         row_map = {row[0]: row[1:] for row in rows}
         labels = []
+        timestamps = []
         series = {metric: [] for metric in self.METRICS}
 
         for idx in range(points):
             ts = start_ts + (idx * step)
             labels.append(self._format_label(ts, range_key))
+            timestamps.append(self._format_tooltip(ts, range_key))
             row = row_map.get(ts)
             if row is None:
                 for metric in self.METRICS:
@@ -335,7 +339,7 @@ class RRDBuffer:
             series["memory_pct"].append(row[2])
             series["power_draw"].append(row[3])
 
-        return labels, series
+        return labels, timestamps, series
 
     def _aggregate_samples(self, samples):
         util = [sample[1] for sample in samples if sample[1] is not None]
@@ -378,6 +382,18 @@ class RRDBuffer:
             "max": max(valid),
             "min": min(valid),
         }
+
+    @staticmethod
+    def _format_tooltip(ts, range_key):
+        dt = datetime.fromtimestamp(ts)
+        if range_key == "1min":
+            return dt.strftime("%H:%M:%S")
+        if range_key in ("5min", "30min"):
+            return dt.strftime("%H:%M")
+        if range_key == "2hr":
+            return dt.strftime("%m/%d %H:%M")
+        # 1day
+        return dt.strftime("%m/%d")
 
     @staticmethod
     def _format_label(ts, range_key):
