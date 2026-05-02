@@ -70,11 +70,11 @@ class RRDBuffer:
                 sleep_for = 60 - (now % 60)
                 await asyncio.sleep(sleep_for)
                 minute_ts = int(time.time() // 60 * 60)
-                await loop.run_in_executor(None, self._consolidate_sync, minute_ts)
+                try:
+                    await loop.run_in_executor(None, self._consolidate_sync, minute_ts)
+                except Exception:
+                    logger.exception("RRD consolidation error (will retry next minute)")
         except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("RRD consolidation loop crashed")
             raise
 
     def query(self, gpu_id, range_key) -> dict:
@@ -366,9 +366,10 @@ class RRDBuffer:
 
     @staticmethod
     def _average(values):
-        if not values:
+        valid = [v for v in values if v is not None]
+        if not valid:
             return None
-        return sum(values) / len(values)
+        return sum(valid) / len(valid)
 
     @staticmethod
     def _calculate_stats(values):
