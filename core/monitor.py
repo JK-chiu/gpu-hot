@@ -97,6 +97,7 @@ class GPUMonitor:
 
     async def get_gpu_data(self):
         """Async collect metrics from all detected GPUs (NVIDIA + Intel Arc)"""
+        loop = asyncio.get_running_loop()
         gpu_data = {}
 
         # --- NVIDIA GPUs ---
@@ -108,9 +109,7 @@ class GPUMonitor:
                 smi_data = None
                 if any(self.use_smi.values()):
                     try:
-                        smi_data = await asyncio.get_event_loop().run_in_executor(
-                            None, parse_nvidia_smi
-                        )
+                        smi_data = await loop.run_in_executor(None, parse_nvidia_smi)
                     except Exception as e:
                         logger.error(f"nvidia-smi failed: {e}")
 
@@ -124,9 +123,7 @@ class GPUMonitor:
                         else:
                             logger.warning(f"GPU {i}: No data from nvidia-smi")
                     else:
-                        task = asyncio.get_event_loop().run_in_executor(
-                            None, self._collect_single_gpu, i
-                        )
+                        task = loop.run_in_executor(None, self._collect_single_gpu, i)
                         nvml_tasks.append((gpu_id, task))
 
                 if nvml_tasks:
@@ -143,7 +140,7 @@ class GPUMonitor:
         # --- Intel Arc GPUs ---
         if self.intel_gpus:
             try:
-                intel_data = await asyncio.get_event_loop().run_in_executor(
+                intel_data = await loop.run_in_executor(
                     None, collect_intel_gpu_metrics, self.intel_gpus
                 )
                 for xpu_id, data in intel_data.items():
@@ -170,16 +167,14 @@ class GPUMonitor:
     async def get_processes(self):
         """Async get GPU process information"""
         if not self.initialized:
-            return []
+            return [], {}
 
         try:
-            # Run process collection in thread pool
-            return await asyncio.get_event_loop().run_in_executor(
-                None, self._get_processes_sync
-            )
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, self._get_processes_sync)
         except Exception as e:
             logger.error(f"Error getting processes: {e}")
-            return []
+            return [], {}
 
     def _get_processes_sync(self):
         """Synchronous process collection (runs in thread pool)"""
@@ -216,12 +211,7 @@ class GPUMonitor:
                 except pynvml.NVMLError:
                     continue
 
-            for gpu_id, counts in gpu_process_counts.items():
-                if gpu_id in self.gpu_data:
-                    self.gpu_data[gpu_id]['compute_processes_count'] = counts['compute']
-                    self.gpu_data[gpu_id]['graphics_processes_count'] = counts['graphics']
-
-            return all_processes
+            return all_processes, gpu_process_counts
 
         except Exception as e:
             logger.error(f"Error getting processes: {e}")

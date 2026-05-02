@@ -41,11 +41,13 @@ async def app_lifespan(app: FastAPI):
             monitor_loop(monitor, websocket_connections, rrd_buffer)
         ))
 
-    app.state.rrd_task = tasks[0] if tasks else None
+    app.state.bg_tasks = tasks
 
     try:
         yield
     finally:
+        if monitor is not None:
+            monitor.running = False
         for task in tasks:
             task.cancel()
             try:

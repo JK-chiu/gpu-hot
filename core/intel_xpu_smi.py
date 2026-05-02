@@ -164,7 +164,8 @@ def _hwmon_temps(drm_device):
         label_path = input_path.replace('_input', '_label')
         if os.path.exists(label_path):
             try:
-                label = open(label_path).read().strip()
+                with open(label_path) as f:
+                    label = f.read().strip()
             except Exception:
                 label = os.path.basename(input_path).replace('_input', '')
         else:
@@ -194,7 +195,8 @@ def _hwmon_energy_wh(pci_bdf):
             label = 'unknown'
             if os.path.exists(label_path):
                 try:
-                    label = open(label_path).read().strip()
+                    with open(label_path) as f:
+                        label = f.read().strip()
                 except Exception:
                     pass
             sensors[label] = raw / 1_000_000.0  # µJ → J
@@ -286,9 +288,9 @@ def collect_intel_gpu_metrics(intel_gpu_info):
 
         # Supplement N/A temperatures from sysfs hwmon
         hwtemps = _hwmon_temps(drm) if drm else {}
-        if _safe_float(metrics.get('temperature')) == 0.0 and 'pkg' in hwtemps:
+        if metrics.get('temperature') in (None, 'N/A', '') and 'pkg' in hwtemps:
             metrics['temperature'] = hwtemps['pkg']
-        if _safe_float(metrics.get('temperature_memory')) == 0.0 and 'vram' in hwtemps:
+        if metrics.get('temperature_memory') in (None, 'N/A', '') and 'vram' in hwtemps:
             metrics['temperature_memory'] = hwtemps['vram']
 
         # Fan speed and power limit from hwmon

@@ -63,10 +63,15 @@ async def monitor_loop(monitor, connections, rrd_buffer=None):
     while monitor.running:
         try:
             # Collect data concurrently
-            gpu_data, processes = await asyncio.gather(
+            gpu_data, (processes, process_counts) = await asyncio.gather(
                 monitor.get_gpu_data(),
                 monitor.get_processes()
             )
+
+            for gpu_id, counts in process_counts.items():
+                if gpu_id in gpu_data:
+                    gpu_data[gpu_id]['compute_processes_count'] = counts['compute']
+                    gpu_data[gpu_id]['graphics_processes_count'] = counts['graphics']
 
             if rrd_buffer is not None:
                 try:
@@ -153,7 +158,7 @@ async def monitor_loop(monitor, connections, rrd_buffer=None):
                         await websocket.send_text(json.dumps(data))
                     except Exception:
                         disconnected.add(websocket)
-                connections -= disconnected
+                connections.difference_update(disconnected)
             
         except Exception as e:
             logger.error(f"Error in monitor loop: {e}")

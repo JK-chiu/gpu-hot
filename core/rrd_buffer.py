@@ -189,9 +189,9 @@ class RRDBuffer:
                 )
 
                 if minute_ts % 300 == 0:
-                    self._cascade_rows(conn, "rrd_1min", "rrd_5min", gpu_id, minute_ts, 5)
+                    self._cascade_rows(conn, "rrd_1min", "rrd_5min", gpu_id, minute_ts, 5, 300)
                 if minute_ts % 1800 == 0:
-                    self._cascade_rows(conn, "rrd_5min", "rrd_30min", gpu_id, minute_ts, 6)
+                    self._cascade_rows(conn, "rrd_5min", "rrd_30min", gpu_id, minute_ts, 6, 1800)
 
             conn.execute("DELETE FROM rrd_1min WHERE ts < ?", (minute_ts - 7200,))
             conn.execute("DELETE FROM rrd_5min WHERE ts < ?", (minute_ts - 604800,))
@@ -201,16 +201,16 @@ class RRDBuffer:
             )
             conn.commit()
 
-    def _cascade_rows(self, conn, source_table, target_table, gpu_id, ts, limit):
+    def _cascade_rows(self, conn, source_table, target_table, gpu_id, ts, limit, window_seconds):
         rows = conn.execute(
             f"""
             SELECT util, temp, mem_pct, power
             FROM {source_table}
-            WHERE gpu_id = ?
+            WHERE gpu_id = ? AND ts > ? AND ts <= ?
             ORDER BY ts DESC
             LIMIT ?
             """,
-            (gpu_id, limit),
+            (gpu_id, ts - window_seconds, ts, limit),
         ).fetchall()
 
         if not rows:
