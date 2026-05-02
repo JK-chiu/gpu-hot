@@ -411,6 +411,6 @@ def _parse_dump_output(output, device_id):
     for field, pos in _METRIC_POSITIONS.items():
         col_idx = offset + pos
         if col_idx < len(data_parts):
-            metrics[field] = _safe_float(data_parts[col_idx])
+            metrics[field] = _safe_float(data_parts[col_idx], default=None)
 
     return metrics
