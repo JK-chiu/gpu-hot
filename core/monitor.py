@@ -215,7 +215,7 @@ class GPUMonitor:
 
         except Exception as e:
             logger.error(f"Error getting processes: {e}")
-            return []
+            return [], {}
 
     def _get_process_name(self, pid):
         """Extract readable process name from PID with improved logic"""

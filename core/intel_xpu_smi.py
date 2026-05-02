@@ -326,7 +326,7 @@ def collect_intel_gpu_metrics(intel_gpu_info):
             'compute_mode':         '',
             'throttle_reasons':     throttle,
             'fan_speed':            fan_rpm,
-            'power_limit':          power_limit if power_limit else 1,
+            'power_limit':          power_limit if power_limit else 0,
             'encoder_utilization':  0,
             'decoder_utilization':  0,
             'encoder_sessions':     0,

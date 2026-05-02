@@ -178,7 +178,13 @@ const DOM_UPDATE_INTERVAL = 1000; // Text/card updates every 1s, charts update e
 
 // Handle incoming GPU data
 function handleSocketMessage(event) {
-    const data = JSON.parse(event.data);
+    let data;
+    try {
+        data = JSON.parse(event.data);
+    } catch (e) {
+        console.error('WebSocket message parse error:', e);
+        return;
+    }
     // Hub mode: different data structure with nodes
     if (data.mode === 'hub') {
         handleClusterData(data);
@@ -202,7 +208,7 @@ function handleSocketMessage(event) {
                 initGPUData(gpuId, {
                     utilization: gpuInfo.utilization,
                     temperature: gpuInfo.temperature,
-                    memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
+                    memory: (gpuInfo.memory_used / (gpuInfo.memory_total || 1)) * 100,
                     power: gpuInfo.power_draw,
                     fanSpeed: gpuInfo.fan_speed,
                     clockGraphics: gpuInfo.clock_graphics,
@@ -480,7 +486,7 @@ function handleClusterData(data) {
                         initGPUData(fullGpuId, {
                             utilization: gpuInfo.utilization,
                             temperature: gpuInfo.temperature,
-                            memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
+                            memory: (gpuInfo.memory_used / (gpuInfo.memory_total || 1)) * 100,
                             power: gpuInfo.power_draw,
                             fanSpeed: gpuInfo.fan_speed,
                             clockGraphics: gpuInfo.clock_graphics,
@@ -525,7 +531,7 @@ function handleClusterData(data) {
                     initGPUData(fullGpuId, {
                         utilization: gpuInfo.utilization,
                         temperature: gpuInfo.temperature,
-                        memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
+                        memory: (gpuInfo.memory_used / (gpuInfo.memory_total || 1)) * 100,
                         power: gpuInfo.power_draw,
                         fanSpeed: gpuInfo.fan_speed,
                         clockGraphics: gpuInfo.clock_graphics,

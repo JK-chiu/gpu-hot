@@ -85,10 +85,13 @@ class Hub:
                             
                             # Extract node name from data or use URL as fallback
                             node_name = data.get('node_name', url)
-                            
-                            # Update URL to node mapping
+
+                            # Remove stale URL key when node_name is resolved
+                            old_key = self.url_to_node.get(url, url)
                             self.url_to_node[url] = node_name
-                            
+                            if old_key != node_name and old_key in self.nodes:
+                                del self.nodes[old_key]
+
                             # Update node entry with received data
                             self.nodes[node_name] = {
                                 'url': url,

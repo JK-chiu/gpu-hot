@@ -18,16 +18,7 @@ def register_hub_handlers(app, hub):
         await websocket.accept()
         websocket_connections.add(websocket)
         logger.debug('Dashboard client connected')
-        
-        if not hub.running:
-            hub.running = True
-            asyncio.create_task(hub_loop(hub, websocket_connections))
-        
-        # Start node connections if not already started
-        if not hub._connection_started:
-            hub._connection_started = True
-            asyncio.create_task(hub._connect_all_nodes())
-        
+
         try:
             # Keep connection alive
             while True:
@@ -56,7 +47,7 @@ async def hub_loop(hub, connections):
                         disconnected.add(websocket)
                 
                 # Remove disconnected clients
-                connections -= disconnected
+                connections.difference_update(disconnected)
                 
         except Exception as e:
             logger.error(f"Error in hub loop: {e}")

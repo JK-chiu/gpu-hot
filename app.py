@@ -28,6 +28,7 @@ async def app_lifespan(app: FastAPI):
 
     rrd_buffer = getattr(app.state, 'rrd_buffer', None)
     monitor = getattr(app.state, 'monitor', None)
+    hub = getattr(app.state, 'hub', None)
 
     tasks = []
 
@@ -41,6 +42,12 @@ async def app_lifespan(app: FastAPI):
             monitor_loop(monitor, websocket_connections, rrd_buffer)
         ))
 
+    if hub is not None:
+        from core.hub_handlers import hub_loop, websocket_connections as hub_ws_connections
+        hub.running = True
+        tasks.append(asyncio.create_task(hub_loop(hub, hub_ws_connections)))
+        tasks.append(asyncio.create_task(hub._connect_all_nodes()))
+
     app.state.bg_tasks = tasks
 
     try:
@@ -48,6 +55,8 @@ async def app_lifespan(app: FastAPI):
     finally:
         if monitor is not None:
             monitor.running = False
+        if hub is not None:
+            hub.running = False
         for task in tasks:
             task.cancel()
             try:
@@ -77,6 +86,7 @@ if config.MODE == 'hub':
     hub = Hub(config.NODE_URLS)
     register_hub_handlers(app, hub)
     monitor_or_hub = hub
+    app.state.hub = hub
     app.state.rrd_buffer = None
     app.state.rrd_task = None
 
