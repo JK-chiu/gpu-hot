@@ -81,7 +81,7 @@ class TestParseNvidiaSmi:
         data = parse_nvidia_smi()
 
         gpu = data['0']
-        assert gpu['temperature'] == 0  # [N/A] -> 0
+        assert gpu['temperature'] is None  # [N/A] -> None
         assert gpu['utilization'] == 0  # N/A -> 0
 
     @patch('subprocess.run')

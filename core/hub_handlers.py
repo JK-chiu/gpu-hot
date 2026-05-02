@@ -40,7 +40,7 @@ async def hub_loop(hub, connections):
             # Send to all connected clients
             if connections:
                 disconnected = set()
-                for websocket in connections:
+                for websocket in list(connections):
                     try:
                         await websocket.send_text(json.dumps(cluster_data))
                     except:

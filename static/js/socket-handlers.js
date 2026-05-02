@@ -235,7 +235,7 @@ function handleSocketMessage(event) {
             initGPUData(gpuId, {
                 utilization: gpuInfo.utilization,
                 temperature: gpuInfo.temperature,
-                memory: (gpuInfo.memory_used / gpuInfo.memory_total) * 100,
+                memory: (gpuInfo.memory_used / (gpuInfo.memory_total || 1)) * 100,
                 power: gpuInfo.power_draw,
                 fanSpeed: gpuInfo.fan_speed,
                 clockGraphics: gpuInfo.clock_graphics,

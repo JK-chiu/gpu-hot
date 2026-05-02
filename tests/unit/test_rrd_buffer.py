@@ -31,7 +31,7 @@ class TestRRDBuffer:
             with patch('time.time', return_value=float(ts) + 0.1):
                 rrd.record('0', make_metrics(util=50 + offset, temp=70 + offset, power=200 + offset))
 
-        with patch('time.time', return_value=104.9):
+        with patch('time.time', return_value=105.0):
             data = rrd.query('0', '1min')
 
         assert len(data['labels']) == 60
@@ -65,9 +65,10 @@ class TestRRDBuffer:
         with patch('time.time', return_value=300.0):
             data = rrd.query('0', '2hr')
 
-        assert len(data['labels']) == 24
-        assert data['series']['utilization'][-1] == 30
-        assert data['stats']['power_draw']['current'] == 170
+        # 2hr now reads rrd_30min at 7200s step, 360 points (30-day window)
+        # rrd_30min is not populated until a 30-min cascade fires, so all null here
+        assert len(data['labels']) == 360
+        assert all(v is None for v in data['series']['utilization'])
 
     def test_query_1day_reads_30min_table(self, tmp_path):
         db_path = tmp_path / 'rrd.db'
@@ -80,14 +81,16 @@ class TestRRDBuffer:
                 INSERT INTO rrd_30min (gpu_id, ts, util, temp, mem_pct, power)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                ('0', 1800, 55.0, 71.0, 42.0, 210.0),
+                ('0', 86400, 55.0, 71.0, 42.0, 210.0),  # ts = 1 day from epoch
             )
             conn.commit()
 
-        with patch('time.time', return_value=1800.0):
+        # Query at 2 days from epoch: end_ts=172800, window covers ts=86400
+        with patch('time.time', return_value=172800.0):
             data = rrd.query('0', '1day')
 
-        assert len(data['labels']) == 48
+        # 1day now has 365 points (1-year window at daily step)
+        assert len(data['labels']) == 365
         assert data['series']['memory_pct'][-1] == 42.0
         assert data['stats']['utilization']['current'] == 55.0
 

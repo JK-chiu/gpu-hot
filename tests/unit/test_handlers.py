@@ -16,7 +16,7 @@ class TestMonitorLoop:
         monitor.running = True
         monitor.use_smi = {}
         monitor.get_gpu_data = AsyncMock(return_value={'0': {'name': 'RTX 3090', 'utilization': 75}})
-        monitor.get_processes = AsyncMock(return_value=[])
+        monitor.get_processes = AsyncMock(return_value=([], {}))
         rrd_buffer = MagicMock()
 
         ws = AsyncMock()
@@ -63,7 +63,7 @@ class TestMonitorLoop:
         monitor.running = True
         monitor.use_smi = {}
         monitor.get_gpu_data = AsyncMock(return_value={})
-        monitor.get_processes = AsyncMock(return_value=[])
+        monitor.get_processes = AsyncMock(return_value=([], {}))
 
         good_ws = AsyncMock()
         bad_ws = AsyncMock()
@@ -101,7 +101,7 @@ class TestMonitorLoop:
         monitor.use_smi = {'0': False}
         monitor.intel_gpus = {}
         monitor.get_gpu_data = AsyncMock(return_value={})
-        monitor.get_processes = AsyncMock(return_value=[])
+        monitor.get_processes = AsyncMock(return_value=([], {}))
 
         sleep_intervals = []
 
@@ -135,7 +135,7 @@ class TestMonitorLoop:
         monitor.use_smi = {'0': False}
         monitor.intel_gpus = {'0': {'name': 'Intel Arc Pro'}}
         monitor.get_gpu_data = AsyncMock(return_value={})
-        monitor.get_processes = AsyncMock(return_value=[])
+        monitor.get_processes = AsyncMock(return_value=([], {}))
 
         sleep_intervals = []
 
@@ -169,7 +169,7 @@ class TestMonitorLoop:
         monitor.use_smi = {'0': True}
         monitor.intel_gpus = {}
         monitor.get_gpu_data = AsyncMock(return_value={})
-        monitor.get_processes = AsyncMock(return_value=[])
+        monitor.get_processes = AsyncMock(return_value=([], {}))
 
         sleep_intervals = []
 
@@ -202,7 +202,7 @@ class TestMonitorLoop:
         monitor.running = True
         monitor.use_smi = {}
         monitor.get_gpu_data = AsyncMock(return_value={})
-        monitor.get_processes = AsyncMock(return_value=[])
+        monitor.get_processes = AsyncMock(return_value=([], {}))
 
         ws = AsyncMock()
         connections = {ws}
