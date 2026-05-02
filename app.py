@@ -24,25 +24,34 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
     """Initialize and tear down background services for the app."""
-    rrd_buffer = getattr(app.state, 'rrd_buffer', None)
-    if rrd_buffer is None:
-        yield
-        return
+    from core.handlers import monitor_loop, websocket_connections
 
-    await rrd_buffer.init_db()
-    app.state.rrd_task = asyncio.create_task(rrd_buffer.consolidate_loop())
+    rrd_buffer = getattr(app.state, 'rrd_buffer', None)
+    monitor = getattr(app.state, 'monitor', None)
+
+    tasks = []
+
+    if rrd_buffer is not None:
+        await rrd_buffer.init_db()
+        tasks.append(asyncio.create_task(rrd_buffer.consolidate_loop()))
+
+    if monitor is not None and rrd_buffer is not None:
+        monitor.running = True
+        tasks.append(asyncio.create_task(
+            monitor_loop(monitor, websocket_connections, rrd_buffer)
+        ))
+
+    app.state.rrd_task = tasks[0] if tasks else None
 
     try:
         yield
     finally:
-        task = getattr(app.state, 'rrd_task', None)
-        if task is None:
-            return
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        for task in tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title="GPU Hot", version=__version__, lifespan=app_lifespan)
@@ -80,6 +89,7 @@ else:
     
     monitor = GPUMonitor()
     rrd_buffer = RRDBuffer()
+    app.state.monitor = monitor
     app.state.rrd_buffer = rrd_buffer
     app.state.rrd_task = None
     register_handlers(app, monitor, rrd_buffer)
