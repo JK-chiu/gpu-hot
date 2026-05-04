@@ -33,7 +33,7 @@ FROM python-runtime AS prod
 CMD ["python", "app.py"]
 
 
-# --- intel image (Intel Arc GPU via xpu-smi, Ubuntu 24.04 + kobuk PPA for Battlemage) ---
+# --- intel image (Intel Arc GPU via xpu-smi, Ubuntu 24.04 + Intel official GPU repo) ---
 FROM ubuntu:24.04 AS intel-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY docker/kobuk-team-ubuntu-intel-graphics-noble.sources /etc/apt/sources.list.d/kobuk-team-ubuntu-intel-graphics-noble.sources
+COPY docker/intel-gpu-noble.sources /etc/apt/sources.list.d/intel-gpu-noble.sources
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
