@@ -46,6 +46,8 @@ build-nvidia: ## 建置 NVIDIA 映像
 	docker compose build
 
 build-intel: ## 建置 Intel Arc 映像
+	VIDEO_GID=$$(getent group video | cut -d: -f3) \
+	RENDER_GID=$$(getent group render | cut -d: -f3) \
 	docker compose -f docker-compose.intel.yml build
 
 ##@ 容器操作
@@ -54,6 +56,8 @@ up: ## 啟動 NVIDIA 服務
 	docker compose up -d
 
 intel: ## 啟動 Intel Arc 服務
+	VIDEO_GID=$$(getent group video | cut -d: -f3) \
+	RENDER_GID=$$(getent group render | cut -d: -f3) \
 	docker compose -f docker-compose.intel.yml up -d
 
 down: ## 停止所有容器
@@ -97,6 +101,8 @@ export-nvidia: ## 儲存 NVIDIA 映像 → dist/gpu-hot-nvidia.tar.gz
 
 export-intel: ## 儲存 Intel Arc 映像 → dist/gpu-hot-intel.tar.gz
 	@mkdir -p dist
+	VIDEO_GID=$$(getent group video | cut -d: -f3) \
+	RENDER_GID=$$(getent group render | cut -d: -f3) \
 	docker compose -f docker-compose.intel.yml build gpu-hot
 	docker image save gpu-hot:intel | gzip > dist/gpu-hot-intel.tar.gz
 	md5sum dist/gpu-hot-intel.tar.gz > dist/gpu-hot-intel.tar.gz.md5

@@ -24,8 +24,8 @@ services:
       - /sys/class/drm:/sys/class/drm:ro
       - /sys/bus/pci/devices:/sys/bus/pci/devices:ro
     group_add:
-      - "44"   # video
-      - "992"  # render (verify: getent group render | cut -d: -f3)
+      - "${VIDEO_GID:-44}"
+      - "${RENDER_GID:-992}"
     cap_add:
       - PERFMON   # xpu-smi Compute Engine % requires perf_event_open
     init: true
