@@ -106,9 +106,9 @@ def _pcie_info(pci_bdf):
     max_width  = _sysfs_str(f'{base}/max_link_width')
     return {
         'pcie_gen':       _parse_pcie_gen(cur_speed) if cur_speed else 'N/A',
-        'pcie_width':     f'x{cur_width}' if cur_width else 'N/A',
+        'pcie_width':     cur_width if cur_width else 'N/A',
         'pcie_gen_max':   _parse_pcie_gen(max_speed) if max_speed else 'N/A',
-        'pcie_width_max': f'x{max_width}' if max_width else 'N/A',
+        'pcie_width_max': max_width if max_width else 'N/A',
     }
 
 
