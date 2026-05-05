@@ -32,6 +32,13 @@ function formatPCIeWidth(width) {
     return clean ? `x${clean}` : 'x?';
 }
 
+function formatPCIeLink(gen, width) {
+    const genLabel = gen === null || gen === undefined || gen === '' || gen === 'N/A' || gen === 'Unknown'
+        ? 'Gen?'
+        : `Gen ${gen}`;
+    return `${genLabel} ${formatPCIeWidth(width)}`;
+}
+
 // Helper: safely get metric value with default
 function getMetricValue(gpuInfo, key, defaultValue = 0) {
     return (key in gpuInfo && gpuInfo[key] !== null && gpuInfo[key] !== undefined) ? gpuInfo[key] : defaultValue;
@@ -163,7 +170,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
     if (hasMetric(gpuInfo, 'pcie_gen')) {
         secondaryItems += `
             <div class="sgo-info-item">
-                <span class="sgo-info-value" id="sgo-pcie-${gpuId}">Gen${gpuInfo.pcie_gen} ${formatPCIeWidth(gpuInfo.pcie_width)}</span>
+                <span class="sgo-info-value" id="sgo-pcie-${gpuId}">${formatPCIeLink(gpuInfo.pcie_gen, gpuInfo.pcie_width)}</span>
                 <span class="sgo-info-label">PCIE</span>
             </div>`;
     }
@@ -335,7 +342,10 @@ function updateEnhancedOverviewCard(gpuId, gpuInfo, shouldUpdateDOM = true) {
         if (clockMemEl) clockMemEl.textContent = `${getMetricValue(gpuInfo, 'clock_memory', 0)} MHz`;
         if (pstateEl) pstateEl.textContent = getMetricValue(gpuInfo, 'performance_state', 'N/A');
         if (memUtilEl) memUtilEl.textContent = `${getMetricValue(gpuInfo, 'memory_utilization', 0)}%`;
-        if (pcieEl) pcieEl.textContent = `Gen${getMetricValue(gpuInfo, 'pcie_gen', '?')} ${formatPCIeWidth(getMetricValue(gpuInfo, 'pcie_width', '?'))}`;
+        if (pcieEl) pcieEl.textContent = formatPCIeLink(
+            getMetricValue(gpuInfo, 'pcie_gen', '?'),
+            getMetricValue(gpuInfo, 'pcie_width', '?')
+        );
         if (energyEl && hasMetric(gpuInfo, 'energy_consumption_wh')) energyEl.textContent = formatEnergy(gpuInfo.energy_consumption_wh);
     }
 
@@ -441,10 +451,10 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="pcie-${gpuId}">Gen ${gpuInfo.pcie_gen}</span>
+                    <span class="metric-num" id="pcie-${gpuId}">${formatPCIeLink(gpuInfo.pcie_gen, gpuInfo.pcie_width)}</span>
                 </div>
-                <span class="metric-label">PCIE LINK</span>
-                <span class="metric-sub" id="pcie-width-${gpuId}">${formatPCIeWidth(gpuInfo.pcie_width)} lanes</span>
+                <span class="metric-label">CURRENT PCIE</span>
+                <span class="metric-sub" id="pcie-width-${gpuId}">GPU endpoint</span>
             </div>`;
     }
 
@@ -533,10 +543,21 @@ function createGPUCard(gpuId, gpuInfo) {
         extraMetrics += `
             <div class="metric-cell">
                 <div class="metric-num-row">
-                    <span class="metric-num" id="pcie-max-${gpuId}">Gen ${gpuInfo.pcie_gen_max}</span>
+                    <span class="metric-num" id="pcie-max-${gpuId}">${formatPCIeLink(gpuInfo.pcie_gen_max, gpuInfo.pcie_width_max)}</span>
                 </div>
                 <span class="metric-label">MAX PCIE</span>
-                <span class="metric-sub" id="pcie-max-width-${gpuId}">${formatPCIeWidth(gpuInfo.pcie_width_max)} Max</span>
+                <span class="metric-sub" id="pcie-max-width-${gpuId}">GPU endpoint cap</span>
+            </div>`;
+    }
+
+    if (hasMetric(gpuInfo, 'pcie_upstream_gen')) {
+        extraMetrics += `
+            <div class="metric-cell">
+                <div class="metric-num-row">
+                    <span class="metric-num" id="pcie-upstream-${gpuId}">${formatPCIeLink(gpuInfo.pcie_upstream_gen, gpuInfo.pcie_upstream_width)}</span>
+                </div>
+                <span class="metric-label">UPSTREAM PCIE</span>
+                <span class="metric-sub" id="pcie-upstream-sub-${gpuId}">Port ${gpuInfo.pcie_upstream_bdf || ''}</span>
             </div>`;
     }
 
@@ -1073,11 +1094,26 @@ function updateGPUDisplay(gpuId, gpuInfo, shouldUpdateDOM = true) {
 
         // Max PCIe
         const pcieMaxEl = document.getElementById(`pcie-max-${gpuId}`);
-        if (pcieMaxEl) pcieMaxEl.textContent = `Gen ${getMetricValue(gpuInfo, 'pcie_gen_max', 'N/A')}`;
+        if (pcieMaxEl) pcieMaxEl.textContent = formatPCIeLink(
+            getMetricValue(gpuInfo, 'pcie_gen_max', 'N/A'),
+            getMetricValue(gpuInfo, 'pcie_width_max', '?')
+        );
+        const pcieEl = document.getElementById(`pcie-${gpuId}`);
+        if (pcieEl) pcieEl.textContent = formatPCIeLink(
+            getMetricValue(gpuInfo, 'pcie_gen', 'N/A'),
+            getMetricValue(gpuInfo, 'pcie_width', '?')
+        );
         const pcieWidthEl = document.getElementById(`pcie-width-${gpuId}`);
-        if (pcieWidthEl) pcieWidthEl.textContent = `${formatPCIeWidth(getMetricValue(gpuInfo, 'pcie_width', '?'))} lanes`;
+        if (pcieWidthEl) pcieWidthEl.textContent = 'GPU endpoint';
         const pcieMaxWidthEl = document.getElementById(`pcie-max-width-${gpuId}`);
-        if (pcieMaxWidthEl) pcieMaxWidthEl.textContent = `${formatPCIeWidth(getMetricValue(gpuInfo, 'pcie_width_max', '?'))} Max`;
+        if (pcieMaxWidthEl) pcieMaxWidthEl.textContent = 'GPU endpoint cap';
+        const pcieUpstreamEl = document.getElementById(`pcie-upstream-${gpuId}`);
+        if (pcieUpstreamEl) pcieUpstreamEl.textContent = formatPCIeLink(
+            getMetricValue(gpuInfo, 'pcie_upstream_gen', 'N/A'),
+            getMetricValue(gpuInfo, 'pcie_upstream_width', '?')
+        );
+        const pcieUpstreamSubEl = document.getElementById(`pcie-upstream-sub-${gpuId}`);
+        if (pcieUpstreamSubEl) pcieUpstreamSubEl.textContent = `Port ${getMetricValue(gpuInfo, 'pcie_upstream_bdf', '')}`;
 
         // BAR1 memory
         const bar1MemEl = document.getElementById(`bar1-mem-${gpuId}`);
