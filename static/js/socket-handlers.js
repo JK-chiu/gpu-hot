@@ -33,6 +33,28 @@ function setupWebSocketHandlers() {
     socket.onerror = handleSocketError;
 }
 
+async function bootstrapInitialData() {
+    try {
+        const response = await fetch('/api/gpu-data', {
+            cache: 'no-store'
+        });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (!payload || !payload.gpus) return;
+
+        processRealtimeData({
+            mode: 'default',
+            node_name: window.location.hostname || 'gpu-hot',
+            gpus: payload.gpus,
+            processes: [],
+            system: null
+        });
+    } catch (error) {
+        console.debug('Initial gpu-data bootstrap failed:', error);
+    }
+}
+
 function handleSocketOpen() {
     console.log('Connected to server');
     reconnectAttempts = 0;
@@ -97,6 +119,7 @@ function attemptReconnect() {
 
 // Initialize connection
 connectWebSocket();
+bootstrapInitialData();
 
 // Performance: Scroll detection to pause DOM updates during scroll
 let isScrolling = false;
@@ -185,6 +208,10 @@ function handleSocketMessage(event) {
         console.error('WebSocket message parse error:', e);
         return;
     }
+    processRealtimeData(data);
+}
+
+function processRealtimeData(data) {
     // Hub mode: different data structure with nodes
     if (data.mode === 'hub') {
         handleClusterData(data);

@@ -244,6 +244,12 @@ class RRDBuffer:
         with self._buffer_lock:
             samples = list(self._buffers.get(gpu_id, ()))
 
+        # After a process restart the in-memory ring buffer is empty until new live samples
+        # arrive. Fall back to persisted 1-minute rows so the history panel is not blank.
+        if not samples:
+            rows = self._query_db_sync(gpu_id, "rrd_1min", start_ts, end_ts)
+            return self._build_series_from_rows(rows, start_ts, points, step, range_key)
+
         return self._build_series_from_samples(samples, start_ts, points, step, range_key)
 
     def _query_db(self, gpu_id, table, points, step, range_key):
