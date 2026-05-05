@@ -39,6 +39,20 @@ class TestRRDBuffer:
         assert data['stats']['temperature']['current'] == 74
         assert data['stats']['power_draw']['max'] == 204
 
+    def test_query_1min_fills_short_sparse_sampling_gaps(self, tmp_path):
+        rrd = RRDBuffer(str(tmp_path / 'rrd.db'))
+
+        for ts in (100, 102, 104):
+            with patch('time.time', return_value=float(ts) + 0.1):
+                rrd.record('i0', make_metrics(util=40, temp=65, mem_used=1000, mem_total=4000, power=55))
+
+        with patch('time.time', return_value=105.0):
+            data = rrd.query('i0', '1min')
+
+        assert data['series']['utilization'][-5:] == [40, 40, 40, 40, 40]
+        assert data['series']['memory_pct'][-1] == 25
+        assert data['stats']['power_draw']['current'] == 55
+
     def test_consolidate_sync_persists_1min_and_5min_rows(self, tmp_path):
         db_path = tmp_path / 'rrd.db'
         rrd = RRDBuffer(str(db_path))

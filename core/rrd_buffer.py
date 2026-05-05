@@ -322,6 +322,8 @@ class RRDBuffer:
             metric: [self._average(bucket[metric]) for bucket in buckets]
             for metric in self.METRICS
         }
+        if step == 1:
+            series = {metric: self._fill_sparse_seconds(values) for metric, values in series.items()}
         return labels, timestamps, series
 
     def _build_series_from_rows(self, rows, start_ts, points, step, range_key):
@@ -389,6 +391,26 @@ class RRDBuffer:
             "max": max(valid),
             "min": min(valid),
         }
+
+    @staticmethod
+    def _fill_sparse_seconds(values):
+        """Carry short gaps forward for subprocess-backed GPUs with sparse samples."""
+        filled = []
+        last_value = None
+        missing_count = 0
+        max_gap = 3
+
+        for value in values:
+            if value is None:
+                missing_count += 1
+                filled.append(last_value if last_value is not None and missing_count <= max_gap else None)
+                continue
+
+            last_value = value
+            missing_count = 0
+            filled.append(value)
+
+        return filled
 
     @staticmethod
     def _format_tooltip(ts, range_key):
