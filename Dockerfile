@@ -1,18 +1,23 @@
+# syntax=docker/dockerfile:1.7
+
 # --- shared Python runtime for lightweight targets ---
 FROM python:3.11-slim-bookworm AS python-runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get -o Acquire::ForceIPv4=true update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install -r requirements.txt
 
 COPY app.py version.py ./
 COPY core ./core
@@ -33,32 +38,54 @@ FROM python-runtime AS prod
 CMD ["python", "app.py"]
 
 
-# --- intel image (Intel Arc GPU via xpu-smi, Ubuntu 24.04 + Intel official GPU repo) ---
-FROM ubuntu:24.04 AS intel-runtime
+# --- intel image (Intel Arc GPU via xpu-smi, host-matched Ubuntu 25.10 userspace) ---
+FROM ubuntu:25.10 AS intel-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+COPY docker/ubuntu-questing.sources /etc/apt/sources.list.d/ubuntu.sources
+COPY docker/debs/ /tmp/debs/
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get -o Acquire::ForceIPv4=true update \
+    && apt-get install -y --no-install-recommends \
     python3 \
-    python3-pip \
     curl \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    /tmp/debs/*.deb \
+    && rm -rf /var/lib/apt/lists/* /tmp/debs
 
-COPY docker/intel-gpu-noble.sources /etc/apt/sources.list.d/intel-gpu-noble.sources
+FROM intel-base AS intel-builder
 
-RUN apt-get update \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get -o Acquire::ForceIPv4=true update \
     && apt-get install -y --no-install-recommends \
-        xpu-smi \
+    build-essential \
+    python3-dev \
+    python3-pip \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install -r requirements.txt
+
+
+FROM intel-base AS intel-runtime
+
+ENV PATH="/opt/venv/bin:${PATH}"
+
+WORKDIR /app
+
+COPY --from=intel-builder /opt/venv /opt/venv
 
 COPY app.py version.py ./
 COPY core ./core
@@ -73,7 +100,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 FROM intel-runtime AS intel
 
-CMD ["python3", "app.py"]
+CMD ["python", "app.py"]
 
 
 # --- mixed image (NVIDIA + Intel Arc simultaneously) ---
@@ -84,7 +111,7 @@ FROM intel-runtime AS mixed
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility,compute
 
-CMD ["python3", "app.py"]
+CMD ["python", "app.py"]
 
 
 # --- dev image (no NVIDIA driver required, GPU data will be empty) ---

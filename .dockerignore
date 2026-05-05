@@ -9,7 +9,14 @@ __pycache__/
 dist/
 build/
 .git/
+.github/
 .gitignore
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+tests/
+CLAUDE.md
 *.md
 !README.md
 docs/
