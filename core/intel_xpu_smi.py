@@ -5,7 +5,6 @@ import json
 import os
 import glob
 import logging
-import re
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -111,60 +110,6 @@ def _pcie_info(pci_bdf):
         'pcie_gen_max':   _parse_pcie_gen(max_speed) if max_speed else 'N/A',
         'pcie_width_max': max_width if max_width else 'N/A',
     }
-
-
-def _pcie_link_rank(info):
-    gen = info.get('pcie_gen')
-    width = info.get('pcie_width')
-    try:
-        gen = int(gen)
-        width = int(width)
-    except (TypeError, ValueError):
-        return 0
-    return gen * width
-
-
-def _upstream_pcie_info(pci_bdf):
-    """Find the nearest wider/faster upstream PCIe port for this endpoint."""
-    try:
-        endpoint_path = os.path.realpath(f'/sys/bus/pci/devices/{pci_bdf}')
-    except Exception:
-        return {}
-
-    endpoint_info = _pcie_info(pci_bdf)
-    endpoint_rank = _pcie_link_rank(endpoint_info)
-    path = os.path.dirname(endpoint_path)
-    candidates = []
-
-    while path and path != '/':
-        bdf = os.path.basename(path)
-        if re.match(r'^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]$', bdf):
-            info = _pcie_info(bdf)
-            if info.get('pcie_gen') != 'N/A' and info.get('pcie_width') != 'N/A':
-                candidates.append((bdf, info))
-        path = os.path.dirname(path)
-
-    for bdf, info in candidates:
-        if _pcie_link_rank(info) > endpoint_rank:
-            return {
-                'pcie_upstream_bdf': bdf,
-                'pcie_upstream_gen': info.get('pcie_gen', 'N/A'),
-                'pcie_upstream_width': info.get('pcie_width', 'N/A'),
-                'pcie_upstream_gen_max': info.get('pcie_gen_max', 'N/A'),
-                'pcie_upstream_width_max': info.get('pcie_width_max', 'N/A'),
-            }
-
-    if candidates:
-        bdf, info = candidates[0]
-        return {
-            'pcie_upstream_bdf': bdf,
-            'pcie_upstream_gen': info.get('pcie_gen', 'N/A'),
-            'pcie_upstream_width': info.get('pcie_width', 'N/A'),
-            'pcie_upstream_gen_max': info.get('pcie_gen_max', 'N/A'),
-            'pcie_upstream_width_max': info.get('pcie_width_max', 'N/A'),
-        }
-
-    return {}
 
 
 def _xe_driver_version():
@@ -365,7 +310,6 @@ def collect_intel_gpu_metrics(intel_gpu_info):
 
         pci_bdf = static_info.get('pci_bus_id', '')
         pcie = _pcie_info(pci_bdf) if pci_bdf and pci_bdf != 'N/A' else {}
-        upstream_pcie = _upstream_pcie_info(pci_bdf) if pci_bdf and pci_bdf != 'N/A' else {}
 
         data = {
             'index':          xpu_id,
@@ -393,7 +337,6 @@ def collect_intel_gpu_metrics(intel_gpu_info):
             'pcie_width_max':       pcie.get('pcie_width_max', 'N/A'),
             '_backend':             'xpu-smi',
         }
-        data.update(upstream_pcie)
         data.update(metrics)
 
         # Convert energy from Joules → Wh (same field name as NVIDIA path)
