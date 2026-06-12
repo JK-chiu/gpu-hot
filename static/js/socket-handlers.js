@@ -297,7 +297,7 @@ function processRealtimeData(data) {
                     const hostname = data.node_name || 'GPU Server';
                     overviewContainer.insertAdjacentHTML('beforeend', `
                         <div class="node-group" data-node="_local">
-                            <div class="node-label">${hostname}</div>
+                            <div class="node-label">${escapeHtml(hostname)}</div>
                             <div class="node-grid"></div>
                         </div>
                     `);
@@ -308,6 +308,18 @@ function processRealtimeData(data) {
             initOverviewMiniChart(gpuId, gpuInfo.utilization);
             lastDOMUpdate[gpuId] = now;
         }
+    });
+
+    // Remove cards/tabs for GPUs no longer present in the payload
+    const currentGpuIds = new Set(Object.keys(data.gpus));
+    overviewContainer.querySelectorAll('[data-gpu-id]').forEach(card => {
+        const staleId = card.getAttribute('data-gpu-id');
+        if (currentGpuIds.has(staleId)) return;
+        delete chartData[staleId];
+        delete lastDOMUpdate[staleId];
+        pendingUpdates.delete(staleId);
+        removeGPUTab(staleId);
+        card.remove();
     });
 
     // Aggregate summary card (2+ GPUs)
@@ -539,7 +551,7 @@ function handleClusterData(data) {
         if (!nodeGroup) {
             overviewContainer.insertAdjacentHTML('beforeend', `
                 <div class="node-group" data-node="${nodeName}">
-                    <div class="node-label">${nodeName}</div>
+                    <div class="node-label">${escapeHtml(nodeName)}</div>
                     <div class="node-grid"></div>
                 </div>
             `);

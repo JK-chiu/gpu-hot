@@ -36,7 +36,7 @@ class GPUMonitor:
             self._detect_smi_gpus()
 
         except Exception as e:
-            logger.error(f"Failed to initialize NVML: {e}")
+            logger.warning(f"NVML unavailable (expected on hosts without NVIDIA GPUs): {e}")
             self.initialized = False
 
         # Detect Intel Arc GPUs (independent of NVML)

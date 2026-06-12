@@ -1,3 +1,10 @@
+// Escape HTML special chars before inserting backend-supplied strings into innerHTML
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
 /**
  * GPU Card creation and update functions
  * GPU Studio — Swiss Minimalist Edition
@@ -81,7 +88,7 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
 
     const uuid = getMetricValue(gpuInfo, 'uuid', '');
     const uuidLine = (uuid && uuid !== 'N/A')
-        ? `<p class="gpu-uuid" title="${uuid}">${uuid}</p>` : '';
+        ? `<p class="gpu-uuid" title="${escapeHtml(uuid)}">${escapeHtml(uuid)}</p>` : '';
 
     return `
         <div class="overview-gpu-card" data-gpu-id="${gpuId}" onclick="switchToView('gpu-${gpuId}')">
@@ -185,9 +192,9 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
             <div class="sgo-header">
                 <div class="gpu-detail-header">
                     <span class="gpu-detail-title">GPU ${gpuId}</span>
-                    <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
+                    <span class="gpu-detail-name">${escapeHtml(gpuInfo.name || 'Unknown')}</span>
                     ${(gpuInfo.uuid && gpuInfo.uuid !== 'N/A')
-                        ? `<span class="gpu-detail-uuid" title="${gpuInfo.uuid}">${gpuInfo.uuid}</span>` : ''}
+                        ? `<span class="gpu-detail-uuid" title="${escapeHtml(gpuInfo.uuid)}">${escapeHtml(gpuInfo.uuid)}</span>` : ''}
                 </div>
                 <div class="gpu-detail-specs">
                     ${hasFan ? `<span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}${fanUnit}</span>` : ''}
@@ -195,7 +202,7 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                     <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
                     ${hasMetric(gpuInfo, 'architecture') ? `<span class="spec-tag">${gpuInfo.architecture}</span>` : ''}
                     <span class="spec-tag">${gpuInfo._backend || (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
-                    <span class="spec-tag model-badge" id="sgo-model-badge-${gpuId}" style="${gpuInfo._running_model ? '' : 'display:none'}">${gpuInfo._running_model || ''}</span>
+                    <span class="spec-tag model-badge" id="sgo-model-badge-${gpuId}" style="${gpuInfo._running_model ? '' : 'display:none'}">${escapeHtml(gpuInfo._running_model || '')}</span>
                 </div>
             </div>
 
@@ -663,7 +670,7 @@ function createGPUCard(gpuId, gpuInfo) {
             <!-- Header -->
             <div class="gpu-detail-header">
                 <span class="gpu-detail-title">GPU ${gpuId}</span>
-                <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
+                <span class="gpu-detail-name">${escapeHtml(gpuInfo.name || 'Unknown')}</span>
             </div>
             <div class="gpu-detail-specs">
                 ${hasFan ? `<span class="spec-tag" id="fan-${gpuId}">Fan ${fan_speed}${fanUnit}</span>` : ''}
@@ -671,7 +678,7 @@ function createGPUCard(gpuId, gpuInfo) {
                 <span class="spec-tag" id="pcie-header-${gpuId}">PCIe ${gpuInfo.pcie_gen_max || gpuInfo.pcie_gen || '?'}</span>
                 <span class="spec-tag">${gpuInfo.driver_version || ''}</span>
                 <span class="spec-tag">${gpuInfo._backend || (gpuInfo._fallback_mode ? 'smi' : 'NVML')}</span>
-                <span class="spec-tag model-badge" id="model-badge-${gpuId}" style="${gpuInfo._running_model ? '' : 'display:none'}">${gpuInfo._running_model || ''}</span>
+                <span class="spec-tag model-badge" id="model-badge-${gpuId}" style="${gpuInfo._running_model ? '' : 'display:none'}">${escapeHtml(gpuInfo._running_model || '')}</span>
             </div>
 
             <!-- PRIMARY TIER: Hero metrics with identity-colored bars -->
@@ -1186,7 +1193,7 @@ function updateProcesses(processes) {
         </div>
     ` + processes.map(proc => `
         <div class="process-item">
-            <div class="process-name">${proc.name}</div>
+            <div class="process-name">${escapeHtml(proc.name)}</div>
             <div class="process-pid">${proc.pid}</div>
             <div class="process-memory">${formatMemory(proc.memory)}${formatMemoryUnit(proc.memory)}</div>
         </div>

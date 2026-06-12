@@ -103,17 +103,6 @@ FROM intel-runtime AS intel
 CMD ["python", "app.py"]
 
 
-# --- mixed image (NVIDIA + Intel Arc simultaneously) ---
-# NVIDIA: nvidia-ml-py works via NVML library injected at runtime by NVIDIA Container Toolkit
-# Intel:  xpu-smi from kobuk PPA (same as intel target)
-FROM intel-runtime AS mixed
-
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=utility,compute
-
-CMD ["python", "app.py"]
-
-
 # --- dev image (no NVIDIA driver required, GPU data will be empty) ---
 FROM python-runtime AS dev
 
