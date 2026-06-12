@@ -33,10 +33,10 @@ describe('initGPUData', () => {
         expect(data.systemMemory).toBeDefined();
     });
 
-    it('creates 120 data points per chart', () => {
+    it('creates 240 data points per chart', () => {
         initGPUData('gpu0');
-        expect(chartData['gpu0'].utilization.data.length).toBe(120);
-        expect(chartData['gpu0'].utilization.labels.length).toBe(120);
+        expect(chartData['gpu0'].utilization.data.length).toBe(240);
+        expect(chartData['gpu0'].utilization.labels.length).toBe(240);
     });
 
     it('pre-fills with initial values', () => {
@@ -61,7 +61,7 @@ describe('initGPUData', () => {
         expect(clocks.graphicsData).toBeDefined();
         expect(clocks.smData).toBeDefined();
         expect(clocks.memoryData).toBeDefined();
-        expect(clocks.graphicsData.length).toBe(120);
+        expect(clocks.graphicsData.length).toBe(240);
     });
 });
 
@@ -124,11 +124,11 @@ describe('updateChart', () => {
 
     it('pushes single-line value', () => {
         initGPUData('gpu0');
-        // Rolling window: starts at 120, push adds 1 then shift removes 1 = still 120
+        // Rolling window: starts at 240, push adds 1 then shift removes 1 = still 240
         updateChart('gpu0', 'utilization', 75);
-        expect(chartData['gpu0'].utilization.data.length).toBe(120);
+        expect(chartData['gpu0'].utilization.data.length).toBe(240);
         // Last element should be 75
-        expect(chartData['gpu0'].utilization.data[119]).toBe(75);
+        expect(chartData['gpu0'].utilization.data[239]).toBe(75);
     });
 
     it('pushes multi-line clocks values', () => {
@@ -170,14 +170,14 @@ describe('updateChart', () => {
         expect(data[data.length - 1]).toBe(0);
     });
 
-    it('maintains rolling window of 120 points', () => {
+    it('maintains rolling window of 240 points', () => {
         initGPUData('gpu0');
-        // Push 5 more values (already 120)
+        // Push 5 more values (already 240)
         for (let i = 0; i < 5; i++) {
             updateChart('gpu0', 'utilization', 50 + i);
         }
-        expect(chartData['gpu0'].utilization.data.length).toBe(120);
-        expect(chartData['gpu0'].utilization.labels.length).toBe(120);
+        expect(chartData['gpu0'].utilization.data.length).toBe(240);
+        expect(chartData['gpu0'].utilization.labels.length).toBe(240);
     });
 
     it('does nothing for null gpuId', () => {
