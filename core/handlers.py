@@ -33,6 +33,10 @@ def register_handlers(app, monitor, rrd_buffer=None):
         websocket_connections.add(websocket)
         logger.debug('Dashboard client connected')
         
+        if not monitor.running:
+            monitor.running = True
+            asyncio.create_task(monitor_loop(monitor, websocket_connections, rrd_buffer))
+        
         try:
             # Keep connection alive
             while True:

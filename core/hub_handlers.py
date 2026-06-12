@@ -19,6 +19,15 @@ def register_hub_handlers(app, hub):
         websocket_connections.add(websocket)
         logger.debug('Dashboard client connected')
 
+        if not hub.running:
+            hub.running = True
+            asyncio.create_task(hub_loop(hub, websocket_connections))
+
+        # Start node connections if not already started
+        if not hub._connection_started:
+            hub._connection_started = True
+            asyncio.create_task(hub._connect_all_nodes())
+
         try:
             # Keep connection alive
             while True:

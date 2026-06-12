@@ -46,6 +46,7 @@ async def app_lifespan(app: FastAPI):
         from core.hub_handlers import hub_loop, websocket_connections as hub_ws_connections
         hub.running = True
         tasks.append(asyncio.create_task(hub_loop(hub, hub_ws_connections)))
+        hub._connection_started = True
         tasks.append(asyncio.create_task(hub._connect_all_nodes()))
 
     app.state.bg_tasks = tasks

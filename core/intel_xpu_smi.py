@@ -100,6 +100,22 @@ def _throttle_reasons(drm_device):
 def _pcie_info(pci_bdf):
     """Read PCIe gen/width from /sys/bus/pci/devices/{bdf}/."""
     base = f'/sys/bus/pci/devices/{pci_bdf}'
+    # Battlemage (Arc B-series) endpoints sit behind an on-card PCIe switch
+    # and advertise a bogus Gen1 x1 link even as max. When that signature is
+    # seen, walk up to the first ancestor port with a wider max link (max is
+    # immune to idle downtraining) and report that port instead — it carries
+    # the real slot link.
+    if (_parse_pcie_gen(_sysfs_str(f'{base}/max_link_speed')) == 1
+            and _sysfs_str(f'{base}/max_link_width') == '1'):
+        path = os.path.dirname(os.path.realpath(base))
+        while os.path.basename(path).count(':') == 2:
+            cand = f'/sys/bus/pci/devices/{os.path.basename(path)}'
+            ms = _sysfs_str(f'{cand}/max_link_speed')
+            mw = _sysfs_str(f'{cand}/max_link_width')
+            if ms and mw and not (_parse_pcie_gen(ms) == 1 and mw == '1'):
+                base = cand
+                break
+            path = os.path.dirname(path)
     cur_speed  = _sysfs_str(f'{base}/current_link_speed')
     cur_width  = _sysfs_str(f'{base}/current_link_width')
     max_speed  = _sysfs_str(f'{base}/max_link_speed')
