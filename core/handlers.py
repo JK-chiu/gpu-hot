@@ -41,6 +41,10 @@ def register_handlers(app, monitor, rrd_buffer=None):
             logger.debug(f'Dashboard client disconnected: {e}')
         finally:
             websocket_connections.discard(websocket)
+            # Pause polling when nobody is watching to avoid idle CPU usage.
+            if not websocket_connections and monitor.running:
+                monitor.running = False
+                logger.info("No active clients — pausing monitor loop")
 
 
 async def monitor_loop(monitor, connections, rrd_buffer=None):

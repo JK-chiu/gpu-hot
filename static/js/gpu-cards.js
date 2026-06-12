@@ -79,11 +79,16 @@ function createCompactOverviewCard(gpuId, gpuInfo) {
     const memory_total = getMetricValue(gpuInfo, 'memory_total', 1);
     const memPercent = (memory_used / memory_total) * 100;
 
+    const uuid = getMetricValue(gpuInfo, 'uuid', '');
+    const uuidLine = (uuid && uuid !== 'N/A')
+        ? `<p class="gpu-uuid" title="${uuid}">${uuid}</p>` : '';
+
     return `
         <div class="overview-gpu-card" data-gpu-id="${gpuId}" onclick="switchToView('gpu-${gpuId}')">
             <div class="overview-gpu-name">
                 <h2>GPU ${gpuId}</h2>
                 <p>${getMetricValue(gpuInfo, 'name', 'Unknown GPU')}</p>
+                ${uuidLine}
             </div>
             <div class="overview-metrics">
                 <div class="overview-metric">
@@ -181,6 +186,8 @@ function createEnhancedOverviewCard(gpuId, gpuInfo) {
                 <div class="gpu-detail-header">
                     <span class="gpu-detail-title">GPU ${gpuId}</span>
                     <span class="gpu-detail-name">${gpuInfo.name || 'Unknown'}</span>
+                    ${(gpuInfo.uuid && gpuInfo.uuid !== 'N/A')
+                        ? `<span class="gpu-detail-uuid" title="${gpuInfo.uuid}">${gpuInfo.uuid}</span>` : ''}
                 </div>
                 <div class="gpu-detail-specs">
                     ${hasFan ? `<span class="spec-tag" id="sgo-fan-badge-${gpuId}">Fan ${fan_speed}${fanUnit}</span>` : ''}
