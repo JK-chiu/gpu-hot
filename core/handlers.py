@@ -53,20 +53,25 @@ def register_handlers(app, monitor, rrd_buffer=None):
 
 async def monitor_loop(monitor, connections, rrd_buffer=None):
     """Async background loop that collects and emits GPU data"""
-    # Use slower interval when any GPU relies on a subprocess tool (nvidia-smi or xpu-smi)
-    uses_nvidia_smi = any(monitor.use_smi.values()) if hasattr(monitor, 'use_smi') else False
+    # xpu-smi stays on the slower interval. Mixed NVIDIA modes can tick quickly
+    # because GPUMonitor caps nvidia-smi refreshes internally.
+    use_smi = getattr(monitor, 'use_smi', {}) or {}
+    uses_nvidia_smi = any(use_smi.values())
+    all_nvidia_smi = bool(use_smi) and all(use_smi.values())
     has_intel = _has_detected_intel_gpus(monitor)
-    uses_subprocess = uses_nvidia_smi or has_intel
+    uses_subprocess = all_nvidia_smi or has_intel
     update_interval = config.NVIDIA_SMI_INTERVAL if uses_subprocess else config.UPDATE_INTERVAL
 
     if uses_nvidia_smi and has_intel:
-        logger.info(f"Using subprocess polling interval: {update_interval}s (nvidia-smi + xpu-smi)")
+        logger.info(f"Monitor loop interval: {update_interval}s "
+                    f"(xpu-smi; nvidia-smi refresh capped at {config.NVIDIA_SMI_INTERVAL}s)")
     elif has_intel:
-        logger.info(f"Using xpu-smi polling interval: {update_interval}s")
+        logger.info(f"Monitor loop interval: {update_interval}s (xpu-smi)")
     elif uses_nvidia_smi:
-        logger.info(f"Using nvidia-smi polling interval: {update_interval}s")
+        logger.info(f"Monitor loop interval: {update_interval}s "
+                    f"(nvidia-smi refresh capped at {config.NVIDIA_SMI_INTERVAL}s)")
     else:
-        logger.info(f"Using NVML polling interval: {update_interval}s")
+        logger.info(f"Monitor loop interval: {update_interval}s")
     
     while monitor.running:
         try:

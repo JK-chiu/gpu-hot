@@ -1,13 +1,14 @@
 """Async GPU monitoring using NVML (NVIDIA) and xpu-smi (Intel Arc)"""
 
 import asyncio
+import time
 import pynvml
 import psutil
 import logging
 from .metrics import MetricsCollector
 from .nvidia_smi_fallback import parse_nvidia_smi
 from .intel_xpu_smi import discover_intel_gpus, collect_intel_gpu_metrics
-from .config import NVIDIA_SMI
+from .config import NVIDIA_SMI, NVIDIA_SMI_INTERVAL
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ class GPUMonitor:
         self.gpu_data = {}
         self.collector = MetricsCollector()
         self.use_smi = {}  # Track which NVIDIA GPUs use nvidia-smi (decided at boot)
+        self._smi_cache = None  # Last nvidia-smi result
+        self._smi_last_ts = 0.0  # Monotonic time of last nvidia-smi refresh
 
         # Intel Arc GPU support
         self.intel_gpus = {}  # {xpu_id: static_info} from xpu-smi discovery
@@ -105,13 +108,20 @@ class GPUMonitor:
             try:
                 device_count = pynvml.nvmlDeviceGetCount()
 
-                # Get nvidia-smi data once if any GPU needs it
+                # Cap nvidia-smi refreshes so they do not throttle NVML GPUs.
                 smi_data = None
                 if any(self.use_smi.values()):
-                    try:
-                        smi_data = await loop.run_in_executor(None, parse_nvidia_smi)
-                    except Exception as e:
-                        logger.error(f"nvidia-smi failed: {e}")
+                    now = time.monotonic()
+                    if self._smi_cache is None or (now - self._smi_last_ts) >= NVIDIA_SMI_INTERVAL:
+                        try:
+                            smi_data = await loop.run_in_executor(None, parse_nvidia_smi)
+                            self._smi_cache = smi_data
+                            self._smi_last_ts = now
+                        except Exception as e:
+                            logger.error(f"nvidia-smi failed: {e}")
+                            smi_data = self._smi_cache
+                    else:
+                        smi_data = self._smi_cache
 
                 # Collect NVIDIA GPU data concurrently
                 nvml_tasks = []
@@ -279,4 +289,3 @@ class GPUMonitor:
                 logger.info("NVML shutdown")
             except Exception as e:
                 logger.error(f"Error shutting down NVML: {e}")
-
